@@ -30,6 +30,22 @@ Out of code scope:
 - Demo video recording (manual task)
 - External account funding (Locus dashboard action)
 
+## Swathi Scope Status
+
+Implemented in this repo:
+
+- Apollo-style supplier enrichment and GSTIN scoring stage in pipeline (`backend/services/supplier_search.py`)
+- Resend quote dispatch automation path (`backend/services/email_service.py`)
+- Browser Use style GSTN automation endpoint (`POST /api/gstn/automate`)
+- Laso virtual card provisioning and debit flow (`backend/services/laso_service.py`)
+- Boundary test suite for budget breach, category restriction, card-limit breach, and audit verification (`backend/tests/test_boundary_suite.py`)
+- Locus audit trail panel and wallet ledger visualized in frontend (`frontend/audit.html`)
+- Frontend settings controls for provisioning cards and triggering GST automation (`frontend/settings.html`)
+
+Out of code scope:
+
+- Devfolio form submission and final upload (manual task)
+
 ## Architecture
 
 ```
@@ -74,10 +90,14 @@ backend/
     orchestrator.py
     spending_controls.py
     supplier_search.py
+    browser_use_service.py
+    laso_service.py
     escrow_service.py
     email_service.py
     parser.py
     audit_service.py
+  tests/
+    test_boundary_suite.py
   websocket/
     manager.py
   database/
@@ -164,6 +184,25 @@ Escrow and approvals:
 Audit:
 
 - `GET /api/audit-trail`
+
+Compliance automation:
+
+- `POST /api/virtual-cards`
+- `GET /api/virtual-cards`
+- `GET /api/virtual-cards/{card_id}`
+- `POST /api/virtual-cards/debit`
+- `GET /api/virtual-cards/{card_id}/transactions`
+- `POST /api/gstn/automate`
+- `GET /api/gstn/runs`
+
+## Boundary Tests
+
+Run the boundary suite from backend folder:
+
+```bash
+cd backend
+python -m unittest discover -s tests -p "test_*.py"
+```
 
 ## Notes
 
