@@ -45,7 +45,7 @@ class EscrowRecord(BaseModel):
     id: str
     supplier: str
     amount: float
-    status: str  # pending | locked | approved | released | refunded | rejected
+    status: str  # pending_approval | locked | released | refunded | rejected
     created_at: str
     session_id: str
     requires_approval: bool = False
@@ -55,6 +55,7 @@ class EscrowRequest(BaseModel):
     supplier: str
     amount: float
     session_id: str = "manual"
+    category: str = "general"
 
 
 class ApprovalRequest(BaseModel):
@@ -87,3 +88,23 @@ class WalletState(BaseModel):
     spent: float = 0.0
     limit: float = 30000.0
     escrow_locked: float = 0.0
+
+
+class WalletTopUpRequest(BaseModel):
+    amount: float
+    session_id: str = "manual"
+    reason: Optional[str] = None
+
+
+class SpendingControlsResponse(BaseModel):
+    auto_approve_threshold: float
+    monthly_spend_limit: float
+    daily_spend_limit: float
+    allowed_categories: List[str]
+
+
+class SpendingControlsUpdate(BaseModel):
+    auto_approve_threshold: Optional[float] = None
+    monthly_spend_limit: Optional[float] = None
+    daily_spend_limit: Optional[float] = None
+    allowed_categories: Optional[List[str]] = None

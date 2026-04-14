@@ -71,7 +71,7 @@
     <a href="approvals.html" class="nav-link active">Approvals</a>
     <a href="settings.html" class="nav-link">Settings</a>
   </nav>
-  <div class="status-pill"><div class="status-dot"></div>1 Pending</div>
+  <div class="status-pill" id="statusPill"><div class="status-dot"></div>Loading</div>
 </div>
 
 <div class="page-content">
@@ -80,105 +80,181 @@
     <div class="page-sub">Review and approve procurement transactions that exceed spending thresholds</div>
   </div>
 
-  <div class="pending-banner">
+  <div class="pending-banner" id="pendingBanner">
     <div class="banner-icon">⚠</div>
     <div class="banner-text">
-      <div class="banner-title">1 transaction awaiting your approval</div>
-      <div class="banner-sub">Agent has paused — manual authorization required before funds are released</div>
+      <div class="banner-title" id="pendingBannerTitle">Loading approvals...</div>
+      <div class="banner-sub" id="pendingBannerSub">Fetching pending transactions from backend.</div>
     </div>
   </div>
 
   <div class="section-label">Pending Approvals</div>
-
-  <div class="approval-card pending" id="card_001">
-    <div class="ac-header">
-      <div>
-        <div class="ac-title">Cotton Yarn Procurement — TamilTex Mills</div>
-        <div class="ac-sub">Request ID: REQ-2026-0041 · Submitted 2 minutes ago</div>
-      </div>
-      <span class="badge b-pending">Awaiting Approval</span>
-    </div>
-    <div class="ac-body">
-      <div class="ac-field">
-        <div class="ac-label">Total Amount</div>
-        <div class="ac-value large">₹28,000</div>
-      </div>
-      <div class="ac-field">
-        <div class="ac-label">Supplier</div>
-        <div class="ac-value">TamilTex Mills</div>
-      </div>
-      <div class="ac-field">
-        <div class="ac-label">Quantity</div>
-        <div class="ac-value">1000 kg @ ₹280</div>
-      </div>
-    </div>
-    <div class="ac-reason">
-      <strong>Why approval is needed:</strong> Amount ₹28,000 exceeds the auto-approve threshold of ₹2,000. 
-      Supplier verified · GSTIN valid · Score 92/100 · Delivery: 4 days.
-    </div>
-    <div class="ac-actions">
-      <button class="btn-reject" onclick="reject('card_001')">✕ Reject Transaction</button>
-      <button class="btn-approve" onclick="approve('card_001')">✓ Approve &amp; Lock Escrow</button>
-    </div>
-  </div>
+  <div id="pendingContainer"></div>
 
   <div class="history-section">
     <div class="section-label">Approval History</div>
-
-    <div class="approval-card approved">
-      <div class="ac-header">
-        <div>
-          <div class="ac-title">Textile Dye Procurement — Shree Dye Works</div>
-          <div class="ac-sub">Request ID: REQ-2026-0039 · Approved yesterday</div>
-        </div>
-        <span class="badge b-approved">✓ Approved</span>
-      </div>
-      <div class="ac-body">
-        <div class="ac-field"><div class="ac-label">Amount</div><div class="ac-value">₹15,000</div></div>
-        <div class="ac-field"><div class="ac-label">Supplier</div><div class="ac-value">Shree Dye Works</div></div>
-        <div class="ac-field"><div class="ac-label">Status</div><div class="ac-value" style="color:var(--green)">Escrow Released</div></div>
-      </div>
-    </div>
-
-    <div class="approval-card rejected">
-      <div class="ac-header">
-        <div>
-          <div class="ac-title">Steel Rod Order — Metro Steel Corp</div>
-          <div class="ac-sub">Request ID: REQ-2026-0037 · Rejected 3 days ago</div>
-        </div>
-        <span class="badge b-rejected">✕ Rejected</span>
-      </div>
-      <div class="ac-body">
-        <div class="ac-field"><div class="ac-label">Amount</div><div class="ac-value">₹62,000</div></div>
-        <div class="ac-field"><div class="ac-label">Supplier</div><div class="ac-value">Metro Steel Corp</div></div>
-        <div class="ac-field"><div class="ac-label">Status</div><div class="ac-value" style="color:var(--coral)">Refunded</div></div>
-      </div>
-    </div>
+    <div id="historyContainer"></div>
   </div>
 </div>
 
 <script>
-function approve(cardId) {
-  const card = document.getElementById(cardId);
-  card.classList.remove('pending');
-  card.classList.add('approved');
-  card.querySelector('.badge').textContent = '✓ Approved';
-  card.querySelector('.badge').className = 'badge b-approved';
-  card.querySelector('.ac-actions').innerHTML = '<div style="font-size:12px;color:var(--green);padding:4px 0;">✓ Approved — Escrow locked and agent notified</div>';
-  document.querySelector('.pending-banner').style.display = 'none';
-  document.querySelector('.status-pill').innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block;"></span>&nbsp;All clear';
-  document.querySelector('.status-pill').style.color = 'var(--accent)';
+const API_BASE = localStorage.getItem('paygenticApiBase') || 'http://localhost:8000';
+
+function formatINR(value) {
+  return `₹${Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 }
 
-function reject(cardId) {
-  const card = document.getElementById(cardId);
-  card.classList.remove('pending');
-  card.classList.add('rejected');
-  card.querySelector('.badge').textContent = '✕ Rejected';
-  card.querySelector('.badge').className = 'badge b-rejected';
-  card.querySelector('.ac-actions').innerHTML = '<div style="font-size:12px;color:var(--coral);padding:4px 0;">✕ Rejected — Escrow funds returned to wallet</div>';
-  document.querySelector('.pending-banner').style.display = 'none';
+function formatTime(ts) {
+  const date = new Date(ts);
+  return Number.isNaN(date.getTime()) ? '--' : date.toLocaleString();
 }
+
+function fetchJson(path, options = {}) {
+  return fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    }
+  }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.detail || `Request failed (${response.status})`);
+    }
+    return payload;
+  });
+}
+
+function renderBadge(status) {
+  if (status === 'pending_approval') return { cls: 'b-pending', text: 'Awaiting Approval' };
+  if (status === 'rejected') return { cls: 'b-rejected', text: 'Rejected' };
+  if (status === 'released') return { cls: 'b-approved', text: 'Released' };
+  if (status === 'refunded') return { cls: 'b-approved', text: 'Refunded' };
+  return { cls: 'b-approved', text: 'Approved' };
+}
+
+function renderCard(item, isPending) {
+  const cardClass = isPending ? 'pending' : (item.status === 'rejected' ? 'rejected' : 'approved');
+  const badge = renderBadge(item.status);
+  const session = item.session_id || 'manual';
+
+  return `
+    <div class="approval-card ${cardClass}">
+      <div class="ac-header">
+        <div>
+          <div class="ac-title">Procurement — ${item.supplier || 'Unknown Supplier'}</div>
+          <div class="ac-sub">Escrow ID: ${item.id} · Session: ${session}</div>
+        </div>
+        <span class="badge ${badge.cls}">${badge.text}</span>
+      </div>
+      <div class="ac-body">
+        <div class="ac-field">
+          <div class="ac-label">Total Amount</div>
+          <div class="ac-value large">${formatINR(item.amount)}</div>
+        </div>
+        <div class="ac-field">
+          <div class="ac-label">Supplier</div>
+          <div class="ac-value">${item.supplier || '—'}</div>
+        </div>
+        <div class="ac-field">
+          <div class="ac-label">Created At</div>
+          <div class="ac-value" style="font-size:12px;">${formatTime(item.created_at)}</div>
+        </div>
+      </div>
+      <div class="ac-reason">
+        <strong>Status:</strong> ${item.status || 'unknown'}
+      </div>
+      ${isPending ? `
+        <div class="ac-actions">
+          <button class="btn-reject" data-action="reject" data-escrow-id="${item.id}" data-session-id="${session}">✕ Reject Transaction</button>
+          <button class="btn-approve" data-action="approve" data-escrow-id="${item.id}" data-session-id="${session}">✓ Approve &amp; Lock Escrow</button>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function updateHeader(pendingCount) {
+  const statusPill = document.getElementById('statusPill');
+  const title = document.getElementById('pendingBannerTitle');
+  const sub = document.getElementById('pendingBannerSub');
+  const banner = document.getElementById('pendingBanner');
+
+  if (pendingCount > 0) {
+    statusPill.innerHTML = `<div class="status-dot"></div>${pendingCount} Pending`;
+    statusPill.style.color = 'var(--amber)';
+    statusPill.style.background = 'rgba(251,191,36,0.08)';
+    statusPill.style.borderColor = 'rgba(251,191,36,0.2)';
+    title.textContent = `${pendingCount} transaction${pendingCount === 1 ? '' : 's'} awaiting your approval`;
+    sub.textContent = 'Agent is paused until you approve or reject these payments.';
+    banner.style.display = 'flex';
+    return;
+  }
+
+  statusPill.innerHTML = `<div class="status-dot"></div>All Clear`;
+  statusPill.style.color = 'var(--accent)';
+  statusPill.style.background = 'rgba(110,231,183,0.08)';
+  statusPill.style.borderColor = 'rgba(110,231,183,0.2)';
+  title.textContent = 'No pending approvals';
+  sub.textContent = 'All high-value requests are already processed.';
+  banner.style.display = 'flex';
+}
+
+async function loadApprovals() {
+  try {
+    const data = await fetchJson('/api/approvals');
+    const pending = data.pending || [];
+    const history = data.history || [];
+
+    updateHeader(pending.length);
+
+    document.getElementById('pendingContainer').innerHTML = pending.length
+      ? pending.map((item) => renderCard(item, true)).join('')
+      : `<div class="approval-card approved"><div class="ac-header"><div><div class="ac-title">No pending approvals</div><div class="ac-sub">New high-value requests will appear here.</div></div><span class="badge b-approved">✓ Clear</span></div></div>`;
+
+    document.getElementById('historyContainer').innerHTML = history.length
+      ? history.map((item) => renderCard(item, false)).join('')
+      : `<div class="approval-card approved"><div class="ac-header"><div><div class="ac-title">No approval history yet</div><div class="ac-sub">Run a session from the dashboard to generate events.</div></div><span class="badge b-approved">Info</span></div></div>`;
+  } catch (error) {
+    document.getElementById('pendingContainer').innerHTML = `<div class="approval-card rejected"><div class="ac-header"><div><div class="ac-title">Failed to load approvals</div><div class="ac-sub">${error.message}</div></div><span class="badge b-rejected">Error</span></div></div>`;
+    document.getElementById('historyContainer').innerHTML = '';
+  }
+}
+
+async function submitDecision(escrowId, sessionId, approved) {
+  const endpoint = approved ? '/api/approve-payment' : '/api/reject-payment';
+  await fetchJson(endpoint, {
+    method: 'POST',
+    body: JSON.stringify({
+      escrow_id: escrowId,
+      session_id: sessionId || 'manual'
+    })
+  });
+}
+
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-action]');
+  if (!button) return;
+
+  const escrowId = button.getAttribute('data-escrow-id');
+  const sessionId = button.getAttribute('data-session-id');
+  const action = button.getAttribute('data-action');
+  const approved = action === 'approve';
+
+  button.disabled = true;
+  button.textContent = approved ? 'Approving...' : 'Rejecting...';
+
+  try {
+    await submitDecision(escrowId, sessionId, approved);
+    await loadApprovals();
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = approved ? '✓ Approve & Lock Escrow' : '✕ Reject Transaction';
+    alert(error.message);
+  }
+});
+
+loadApprovals();
 </script>
 </body>
 </html>

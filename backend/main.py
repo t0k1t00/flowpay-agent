@@ -3,31 +3,49 @@ PayGentic — Autonomous B2B Sourcing Agent
 FastAPI Backend
 """
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 import asyncio
 import json
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, Optional
 
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+
+from database.db import init_db
 from models import (
-    SourcingRequest, SupplierResponse, EscrowRequest,
-    ApprovalRequest, EmailRequest, AuditEntry
+    ApprovalRequest,
+    EmailRequest,
+    EscrowRequest,
+    SourcingRequest,
+    SpendingControlsResponse,
+    SpendingControlsUpdate,
+    WalletTopUpRequest,
 )
-from services.parser import parse_request
-from services.supplier_search import search_suppliers, enrich_suppliers, rank_suppliers
+from services.audit_service import get_audit_trail, log_action
 from services.email_service import send_quote_emails
 from services.escrow_service import (
-    create_escrow, approve_escrow, reject_escrow,
-    release_escrow, refund_escrow
+    approve_escrow,
+    create_escrow,
+    list_escrows,
+    list_pending_approvals,
+    refund_escrow,
+    reject_escrow,
+    release_escrow,
 )
-from services.audit_service import log_action, get_audit_trail
-from database.db import init_db
+from services.orchestrator import ProcurementOrchestrator
+from services.parser import parse_request
+from services.spending_controls import (
+    get_spending_controls,
+    get_wallet_ledger,
+    get_wallet_state,
+    topup_wallet,
+    update_spending_controls,
+)
+from services.supplier_search import get_mock_suppliers
 from websocket.manager import ConnectionManager
 
-app = FastAPI(title="PayGentic API", version="1.0.0")
+app = FastAPI(title="PayGentic API", version="1.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,177 +55,276 @@ app.add_middleware(
 )
 
 manager = ConnectionManager()
+orchestrator = ProcurementOrchestrator()
+sessions: Dict[str, Dict[str, Any]] = {}
+
 
 @app.on_event("startup")
-async def startup():
+async def startup() -> None:
     init_db()
+
+
+def now() -> str:
+    return datetime.now().isoformat()
+
+
+async def broadcast_event(payload: Dict[str, Any]) -> None:
+    payload.setdefault("ts", now())
+    await manager.broadcast(json.dumps(payload))
+
+
+def _to_float(raw: str, fallback: float) -> float:
+    cleaned = "".join(ch for ch in str(raw) if ch.isdigit() or ch == ".")
+    if not cleaned:
+        return fallback
+    try:
+        return float(cleaned)
+    except ValueError:
+        return fallback
+
+
+async def emit_wallet_state(session_id: str) -> None:
+    await broadcast_event(
+        {
+            "type": "wallet",
+            "session_id": session_id,
+            "data": get_wallet_state().model_dump(),
+        }
+    )
+
+
+async def run_pipeline(session_id: str, query: str) -> None:
+    try:
+        sessions[session_id]["status"] = "running"
+        context = await orchestrator.run(query=query, session_id=session_id, emit=broadcast_event)
+        sessions[session_id].update(
+            {
+                "status": "completed",
+                "completed_at": now(),
+                "selected_supplier": context.selected_supplier.company_name if context.selected_supplier else None,
+                "escrow_id": context.escrow.id if context.escrow else None,
+            }
+        )
+        await emit_wallet_state(session_id)
+    except Exception as exc:
+        sessions[session_id]["status"] = "failed"
+        sessions[session_id]["error"] = str(exc)
+        log_action("pipeline_failed", "orchestrator", 0, "error", session_id)
+
 
 # ── WebSocket ──────────────────────────────────────────────
 @app.websocket("/ws/logs")
-async def websocket_logs(websocket: WebSocket):
+async def websocket_logs(websocket: WebSocket) -> None:
     await manager.connect(websocket)
+    await manager.send_to(websocket, json.dumps({"type": "connected", "ts": now()}))
     try:
         while True:
-            data = await websocket.receive_text()
-            # Echo or process incoming messages
-            await manager.broadcast(json.dumps({"type": "ping", "ts": datetime.now().isoformat()}))
+            await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+    except Exception:
+        manager.disconnect(websocket)
+
 
 # ── Main Agent Orchestration ───────────────────────────────
 @app.post("/api/request-source")
-async def request_source(req: SourcingRequest):
-    """Main entry point: triggers full agent pipeline."""
-    session_id = str(uuid.uuid4())[:8]
+async def request_source(req: SourcingRequest) -> Dict[str, str]:
+    """Start a sourcing session and stream execution events over WebSocket."""
+    session_id = req.session_id or str(uuid.uuid4())[:8]
+    sessions[session_id] = {
+        "session_id": session_id,
+        "query": req.query,
+        "status": "queued",
+        "created_at": now(),
+    }
 
-    async def stream_pipeline():
-        # Step 1: Parse
-        await manager.broadcast(json.dumps({
-            "type": "log", "step": "parse",
-            "action": "Parsing sourcing request",
-            "detail": f"Input: {req.query}",
-            "ts": now()
-        }))
-        parsed = parse_request(req.query)
-        await asyncio.sleep(0.5)
-
-        # Step 2: Search
-        await manager.broadcast(json.dumps({
-            "type": "log", "step": "search",
-            "action": "Searching suppliers via Exa API",
-            "detail": f"Query: {parsed.material} suppliers in India",
-            "ts": now()
-        }))
-        suppliers = search_suppliers(parsed)
-        await asyncio.sleep(1.0)
-
-        # Step 3: Enrich
-        await manager.broadcast(json.dumps({
-            "type": "log", "step": "enrich",
-            "action": "Enriching supplier data",
-            "detail": f"GSTIN validation + Apollo scores for {len(suppliers)} suppliers",
-            "ts": now()
-        }))
-        enriched = enrich_suppliers(suppliers)
-        await asyncio.sleep(0.8)
-
-        # Step 4: Rank
-        ranked = rank_suppliers(enriched, parsed)
-        await manager.broadcast(json.dumps({
-            "type": "suppliers",
-            "data": [s.dict() for s in ranked],
-            "ts": now()
-        }))
-        await asyncio.sleep(0.5)
-
-        # Step 5: Email
-        await manager.broadcast(json.dumps({
-            "type": "log", "step": "email",
-            "action": "Sending quote request emails",
-            "detail": f"Dispatching to {len(ranked)} suppliers via Resend",
-            "ts": now()
-        }))
-        email_results = send_quote_emails(ranked, parsed)
-        await asyncio.sleep(0.8)
-
-        # Step 6: Select best
-        best = ranked[0]
-        total_cost = best.price_per_kg * parsed.quantity_kg
-        await manager.broadcast(json.dumps({
-            "type": "log", "step": "select",
-            "action": f"Best supplier selected: {best.company_name}",
-            "detail": f"Score {best.score} | ₹{best.price_per_kg}/kg | {best.delivery_days} days",
-            "ts": now()
-        }))
-
-        # Step 7: Escrow
-        escrow = create_escrow(best, total_cost, session_id)
-        await manager.broadcast(json.dumps({
-            "type": "escrow",
-            "data": escrow.dict(),
-            "ts": now()
-        }))
-
-        # Step 8: Threshold check
-        APPROVAL_THRESHOLD = 2000
-        if total_cost > APPROVAL_THRESHOLD:
-            await manager.broadcast(json.dumps({
-                "type": "approval_required",
-                "supplier": best.company_name,
-                "amount": total_cost,
-                "excess": total_cost - APPROVAL_THRESHOLD,
-                "escrow_id": escrow.id,
-                "ts": now()
-            }))
-        else:
-            await manager.broadcast(json.dumps({
-                "type": "log", "step": "escrow",
-                "action": "Auto-approved: below threshold",
-                "detail": f"₹{total_cost} < ₹{APPROVAL_THRESHOLD} limit",
-                "ts": now()
-            }))
-
-        # Log to audit
-        log_action("sourcing_complete", best.company_name, total_cost, "pending", session_id)
-
-    asyncio.create_task(stream_pipeline())
+    asyncio.create_task(run_pipeline(session_id, req.query))
     return {"status": "started", "session_id": session_id}
+
+
+@app.get("/api/session/{session_id}")
+async def get_session(session_id: str) -> Dict[str, Any]:
+    data = sessions.get(session_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return data
 
 
 # ── Supplier Routes ────────────────────────────────────────
 @app.get("/api/suppliers")
 async def get_suppliers(material: Optional[str] = None):
-    from services.supplier_search import get_mock_suppliers
     suppliers = get_mock_suppliers()
     if material:
-        suppliers = [s for s in suppliers if material.lower() in s.category.lower()]
-    return suppliers
+        query = material.lower()
+        suppliers = [
+            supplier
+            for supplier in suppliers
+            if query in supplier.category.lower() or query in supplier.company_name.lower()
+        ]
+    return [supplier.model_dump() for supplier in suppliers]
 
 
 # ── Email Routes ───────────────────────────────────────────
 @app.post("/api/send-email")
 async def send_email(req: EmailRequest):
-    result = send_quote_emails([req.supplier_id], req)
-    log_action("email_sent", req.supplier_id, 0, "sent", req.session_id or "manual")
-    return {"status": "sent", "result": result}
+    supplier = next((item for item in get_mock_suppliers() if item.id == req.supplier_id), None)
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+
+    qty = _to_float(req.quantity, 1000.0)
+    max_budget = _to_float(req.max_budget, 300.0)
+    parsed = parse_request(f"{qty}kg {req.material} under {max_budget}/kg within {req.delivery_days} days")
+    parsed.quantity_kg = qty
+    parsed.max_budget_per_kg = max_budget
+    parsed.material = req.material.lower().strip() or parsed.material
+
+    result = send_quote_emails([supplier], parsed, req.session_id or "manual")
+    log_action("email_sent", supplier.company_name, 0, "sent", req.session_id or "manual")
+    return {"status": "sent", "result": result[0] if result else None}
 
 
 # ── Escrow Routes ──────────────────────────────────────────
 @app.post("/api/create-escrow")
 async def api_create_escrow(req: EscrowRequest):
-    escrow = create_escrow(req.supplier, req.amount, req.session_id)
-    log_action("escrow_created", req.supplier, req.amount, "locked", req.session_id)
+    try:
+        escrow = create_escrow(req.supplier, req.amount, req.session_id, req.category)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    log_action("escrow_created", req.supplier, req.amount, escrow.status, req.session_id)
+    await broadcast_event({"type": "escrow", "session_id": req.session_id, "data": escrow.model_dump()})
+    await emit_wallet_state(req.session_id)
     return escrow
+
+
+@app.get("/api/escrows")
+async def api_list_escrows(session_id: Optional[str] = None):
+    return list_escrows(session_id)
+
+
+@app.get("/api/approvals")
+async def api_list_approvals(session_id: Optional[str] = None):
+    controls = get_spending_controls()
+    all_escrows = list_escrows(session_id)
+    pending = list_pending_approvals(session_id)
+    history = [
+        item
+        for item in all_escrows
+        if item.get("status") in {"locked", "released", "refunded", "rejected"}
+    ]
+
+    return {
+        "approval_threshold": controls["auto_approve_threshold"],
+        "pending": pending,
+        "history": history,
+        "pending_count": len(pending),
+    }
 
 
 @app.post("/api/approve-payment")
 async def api_approve(req: ApprovalRequest):
-    result = approve_escrow(req.escrow_id)
-    log_action("payment_approved", req.escrow_id, result.get("amount", 0), "approved", req.session_id)
-    await manager.broadcast(json.dumps({"type": "approval_result", "approved": True, "escrow_id": req.escrow_id}))
+    try:
+        result = approve_escrow(req.escrow_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    session_id = result.get("session_id", req.session_id)
+    log_action("payment_approved", req.escrow_id, result.get("amount", 0), "approved", session_id)
+    await broadcast_event({"type": "approval_result", "approved": True, "escrow_id": req.escrow_id, "session_id": session_id})
+    await broadcast_event({"type": "escrow", "data": result, "session_id": session_id})
+    await emit_wallet_state(session_id)
     return result
 
 
 @app.post("/api/reject-payment")
 async def api_reject(req: ApprovalRequest):
-    result = reject_escrow(req.escrow_id)
-    log_action("payment_rejected", req.escrow_id, 0, "rejected", req.session_id)
-    await manager.broadcast(json.dumps({"type": "approval_result", "approved": False, "escrow_id": req.escrow_id}))
+    try:
+        result = reject_escrow(req.escrow_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    session_id = result.get("session_id", req.session_id)
+    log_action("payment_rejected", req.escrow_id, 0, "rejected", session_id)
+    await broadcast_event({"type": "approval_result", "approved": False, "escrow_id": req.escrow_id, "session_id": session_id})
+    await broadcast_event({"type": "escrow", "data": result, "session_id": session_id})
+    await emit_wallet_state(session_id)
     return result
 
 
 @app.post("/api/release-escrow")
 async def api_release(req: ApprovalRequest):
-    result = release_escrow(req.escrow_id)
-    log_action("escrow_released", req.escrow_id, result.get("amount", 0), "released", req.session_id)
+    try:
+        result = release_escrow(req.escrow_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    session_id = result.get("session_id", req.session_id)
+    log_action("escrow_released", req.escrow_id, result.get("amount", 0), "released", session_id)
+    await broadcast_event({"type": "escrow", "data": result, "session_id": session_id})
     return result
 
 
 @app.post("/api/refund-escrow")
 async def api_refund(req: ApprovalRequest):
-    result = refund_escrow(req.escrow_id)
-    log_action("escrow_refunded", req.escrow_id, result.get("amount", 0), "refunded", req.session_id)
+    try:
+        result = refund_escrow(req.escrow_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    session_id = result.get("session_id", req.session_id)
+    log_action("escrow_refunded", req.escrow_id, result.get("amount", 0), "refunded", session_id)
+    await broadcast_event({"type": "escrow", "data": result, "session_id": session_id})
+    await emit_wallet_state(session_id)
     return result
+
+
+# ── Spending Controls / Wallet ─────────────────────────────
+@app.get("/api/wallet-state")
+async def wallet_state():
+    return get_wallet_state().model_dump()
+
+
+@app.post("/api/wallet-topup")
+async def wallet_topup(payload: WalletTopUpRequest):
+    try:
+        entry = topup_wallet(
+            amount=payload.amount,
+            session_id=payload.session_id,
+            reason=payload.reason or "manual_topup",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    await emit_wallet_state(payload.session_id)
+    return {
+        "status": "credited",
+        "entry": entry,
+        "wallet": get_wallet_state().model_dump(),
+    }
+
+
+@app.get("/api/wallet-ledger")
+async def wallet_ledger(limit: int = 100):
+    return get_wallet_ledger(limit)
+
+
+@app.get("/api/spending-controls", response_model=SpendingControlsResponse)
+async def api_get_spending_controls():
+    return get_spending_controls()
+
+
+@app.put("/api/spending-controls", response_model=SpendingControlsResponse)
+async def api_update_spending_controls(payload: SpendingControlsUpdate):
+    try:
+        return update_spending_controls(payload.model_dump(exclude_none=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 # ── Audit Trail ────────────────────────────────────────────
@@ -218,14 +335,15 @@ async def get_audit(session_id: Optional[str] = None):
 
 # ── Health ─────────────────────────────────────────────────
 @app.get("/health")
-async def health():
-    return {"status": "ok", "version": "1.0.0"}
-
-
-def now():
-    return datetime.now().isoformat()
+async def health() -> Dict[str, Any]:
+    return {
+        "status": "ok",
+        "version": "1.1.0",
+        "active_sessions": len([s for s in sessions.values() if s.get("status") == "running"]),
+    }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

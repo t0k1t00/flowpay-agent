@@ -1,202 +1,172 @@
-# PayGentic — Autonomous B2B Sourcing & Escrow Agent
+# PayGentic
 
-**Locus Paygentic Hackathon 2026**
+Autonomous B2B sourcing and escrow workflow built for the Locus Paygentic Hackathon (Week 1: PayWithLocus suite).
 
-An AI agent that autonomously handles the full B2B procurement lifecycle — from natural language request to escrow payment with human-in-the-loop approval.
+## Week 1 Alignment
 
----
+This implementation is aligned to the Week 1 track because it focuses on:
+
+- Agent-initiated supplier discovery (Exa-style flow)
+- Agent-initiated web data extraction (Firecrawl-style flow)
+- PayWithLocus-style spending controls and budget enforcement
+- Human-in-the-loop approval threshold for high-value payments
+- Escrow lifecycle (reserve, approve/reject, release/refund)
+- Real-time agent reasoning and financial event streaming
+
+## K Scope Status
+
+Implemented in this repo:
+
+- Agent orchestration framework with tool interfaces (`backend/services/orchestrator.py`)
+- Locus wallet + spending controls (`backend/services/spending_controls.py`)
+- Exa + Firecrawl integrated search pipeline with micropayment charging and fallback mode (`backend/services/supplier_search.py`)
+- HITL spending threshold and approval events (`backend/services/orchestrator.py`, `backend/main.py`)
+- Escrow lock/release/refund logic backed by wallet state transitions (`backend/services/escrow_service.py`)
+- Real-time agent log panel connected to backend WebSocket stream (`frontend/index.html`)
+- Backend APIs for wallet state and spending control configuration (`backend/main.py`)
+
+Out of code scope:
+
+- Demo video recording (manual task)
+- External account funding (Locus dashboard action)
 
 ## Architecture
 
 ```
-User Request
-    │
-    ▼
-Request Parser (LangChain / Pydantic)
-    │
-    ├──▶ Supplier Search (Exa API)
-    ├──▶ Web Scraping (Firecrawl)
-    └──▶ Data Enrichment (Apollo / GSTIN)
-         │
-         ▼
-    Supplier Ranking Engine
-         │
-         ▼
-    Email Automation (Resend)
-         │
-         ▼
-    Escrow Creation (Locus)
-         │
-         ├── Under ₹2,000 ──▶ Auto-approve ──▶ Lock
-         └── Over ₹2,000  ──▶ Human Approval Center
-                                    │
-                              Approve / Reject
-                                    │
-                              Shipment Proof Upload
-                                    │
-                          Release Escrow / Refund
-         │
-         ▼
-    Real-time WebSocket Audit Trail
+Frontend Dashboard (index.html)
+  - Start sourcing session
+  - WebSocket log stream
+  - Supplier cards
+  - Approval modal
+  - Wallet + escrow timeline
+
+FastAPI Backend (main.py)
+  - /api/request-source
+  - /ws/logs
+  - /api/wallet-state
+  - /api/spending-controls
+  - escrow + audit endpoints
+
+Orchestrator Tool Chain
+  1) Parse intent
+  2) Search suppliers (Exa path)
+  3) Scrape/enrich (Firecrawl + Apollo path)
+  4) Rank suppliers
+  5) Send quote emails
+  6) Create escrow + trigger approval when needed
+
+Control Layer
+  - Monthly/daily limits
+  - Auto-approve threshold
+  - Allowed vendor categories
+  - Wallet ledger for micropayments and escrow events
 ```
-
----
-
-## Quick Start
-
-### Backend (FastAPI)
-
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate       # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env           # Fill in your API keys
-python main.py
-# Server runs at http://localhost:8000
-# WebSocket at ws://localhost:8000/ws/logs
-```
-
-### Frontend (Static HTML)
-
-Open `frontend/index.html` directly in your browser, or:
-
-```bash
-cd frontend
-npx serve .
-# Serves at http://localhost:3000
-```
-
----
-
-## Pages
-
-| Page | File | Description |
-|------|------|-------------|
-| Dashboard | `index.html` | Main split-screen agent interface |
-| Suppliers | `suppliers.html` | Full supplier directory with filters |
-| Audit Trail | `audit.html` | Tamper-proof transaction log |
-| Approvals | `approvals.html` | Human approval center |
-| Settings | `settings.html` | API keys & spending limits |
-
----
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/request-source` | Start agent pipeline |
-| GET | `/api/suppliers` | List suppliers |
-| POST | `/api/send-email` | Send quote email |
-| POST | `/api/create-escrow` | Create escrow payment |
-| POST | `/api/approve-payment` | Approve transaction |
-| POST | `/api/reject-payment` | Reject transaction |
-| POST | `/api/release-escrow` | Release funds to supplier |
-| POST | `/api/refund-escrow` | Refund funds to wallet |
-| GET | `/api/audit-trail` | Get audit log |
-| WS | `/ws/logs` | Real-time log stream |
-
----
-
-## Demo Script (Hackathon Presentation)
-
-### Setup (before demo)
-- Open `index.html` in browser (full screen)
-- Have the backend running (`python main.py`)
-
-### Step-by-step Demo (8 minutes)
-
-**1. Show the dashboard (30s)**
-> "This is PayGentic — an autonomous B2B procurement agent. The left panel shows agent reasoning in real-time. The center shows supplier results. The right is the financial audit trail."
-
-**2. Enter a sourcing request (30s)**
-> Type: `Find 1000kg cotton yarn suppliers under ₹300/kg delivered within 5 days in Tamil Nadu`
-> Click **Start Agent**
-
-**3. Watch the agent work (2 min)**
-> Narrate each log as it streams:
-> - "The agent is parsing the natural language request..."
-> - "Now searching suppliers via Exa API..."
-> - "Scraping supplier websites with Firecrawl..."
-> - "Enriching data — GSTIN validation, company scores..."
-> - "Ranking suppliers by price, delivery time, and verification..."
-
-**4. Show supplier cards (1 min)**
-> "8 suppliers ranked. TamilTex Mills is recommended — Score 92, ₹280/kg, 4-day delivery."
-> Click **View Details** on TamilTex Mills
-> Show GSTIN, contact, pricing breakdown
-
-**5. Email automation (30s)**
-> "The agent automatically dispatched 8 quote request emails via Resend API."
-> Click **Send Quote** to demonstrate
-
-**6. Escrow creation + approval (2 min)**
-> "The agent selected TamilTex Mills and created a ₹28,000 Locus escrow payment."
-> Show the approval modal: "Amount exceeds our ₹2,000 threshold — agent pauses for human approval."
-> Click **Approve** → show escrow status update to 'Approved'
-
-**7. Audit trail (1 min)**
-> Navigate to Audit Trail page
-> "Every action is logged — search, email, escrow, approval. Export to CSV for compliance."
-
-**8. Release escrow (30s)**
-> Back on dashboard: "Upload shipment proof, then release escrow to pay the supplier."
-> Click **Release** → show 'Released' status
-
----
-
-## Simulated vs Real APIs
-
-| Feature | Demo Mode | Production |
-|---------|-----------|------------|
-| Supplier Search | Mock data (8 suppliers) | Exa API |
-| Web Scraping | Pre-enriched data | Firecrawl |
-| Company Enrichment | Static scores | Apollo API |
-| Email Sending | Console log | Resend API |
-| Escrow Payment | In-memory state | Locus Paygentic API |
-| GSTIN Validation | Mock valid | GST Portal API |
-
----
 
 ## Project Structure
 
 ```
-paygentic/
-├── frontend/
-│   ├── index.html          Dashboard
-│   ├── suppliers.html      Supplier directory
-│   ├── audit.html          Audit trail
-│   ├── approvals.html      Approval center
-│   └── settings.html       Settings
-│
-├── backend/
-│   ├── main.py             FastAPI app + agent orchestration
-│   ├── models.py           Pydantic data models
-│   ├── requirements.txt    Dependencies
-│   ├── .env.example        Environment variables
-│   ├── services/
-│   │   ├── parser.py           Request parsing
-│   │   ├── supplier_search.py  Search + enrich + rank
-│   │   ├── email_service.py    Email automation
-│   │   ├── escrow_service.py   Escrow management
-│   │   └── audit_service.py    Audit logging
-│   ├── database/
-│   │   └── db.py           SQLite schema + init
-│   └── websocket/
-│       └── manager.py      WebSocket broadcast manager
-│
-└── README.md
+backend/
+  main.py
+  models.py
+  requirements.txt
+  .env.example
+  services/
+    orchestrator.py
+    spending_controls.py
+    supplier_search.py
+    escrow_service.py
+    email_service.py
+    parser.py
+    audit_service.py
+  websocket/
+    manager.py
+  database/
+    db.py
+
+frontend/
+  index.html
+  suppliers.html
+  audit.html
+  approvals.html
+  settings.html
 ```
 
----
+## Run Locally
 
-## Built With
+### 1) Backend
 
-- **FastAPI** — Python async backend
-- **WebSockets** — Real-time log streaming
-- **SQLite** — Local audit storage
-- **Syne + IBM Plex Mono** — Typography
-- **Vanilla HTML/CSS/JS** — Zero-dependency frontend
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+python main.py
+```
 
-## Team
-Locus Paygentic Hackathon 2026
+Backend runs on `http://localhost:8000`
+WebSocket stream is at `ws://localhost:8000/ws/logs`
+
+### 2) Frontend
+
+Open `frontend/index.html` in browser, or serve statically:
+
+```bash
+cd frontend
+npx serve .
+```
+
+## Environment Variables
+
+Core variables in `backend/.env.example`:
+
+- `EXA_API_KEY`
+- `FIRECRAWL_API_KEY`
+- `RESEND_API_KEY`
+- `LOCUS_API_KEY`
+- `LOCUS_API_BASE`
+- `AUTO_APPROVE_THRESHOLD`
+- `MONTHLY_SPEND_LIMIT`
+- `DAILY_SPEND_LIMIT`
+- `WALLET_BALANCE`
+- `ALLOWED_VENDOR_CATEGORIES`
+- `USE_LIVE_APIS`
+- `USE_LOCUS_WRAPPED_APIS`
+
+`USE_LIVE_APIS=false` (default) uses deterministic mock fallback with real control logic.
+
+## API Endpoints
+
+Main workflow:
+
+- `POST /api/request-source`
+- `GET /api/session/{session_id}`
+- `WS /ws/logs`
+
+Wallet and controls:
+
+- `GET /api/wallet-state`
+- `POST /api/wallet-topup`
+- `GET /api/wallet-ledger`
+- `GET /api/spending-controls`
+- `PUT /api/spending-controls`
+
+Escrow and approvals:
+
+- `POST /api/create-escrow`
+- `GET /api/escrows`
+- `GET /api/approvals`
+- `POST /api/approve-payment`
+- `POST /api/reject-payment`
+- `POST /api/release-escrow`
+- `POST /api/refund-escrow`
+
+Audit:
+
+- `GET /api/audit-trail`
+
+## Notes
+
+- Current wallet, audit, and escrow stores are in-memory services for hackathon speed.
+- SQLite initialization is present and can be used for persistence extension.
+- The dashboard now consumes live backend events instead of synthetic client-only timeline data.

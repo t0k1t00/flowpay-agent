@@ -84,22 +84,22 @@
   <div class="stats-row">
     <div class="stat-card">
       <div class="stat-label">Total Actions</div>
-      <div class="stat-value accent">12</div>
+      <div class="stat-value accent" id="statTotalActions">0</div>
       <div class="stat-sub">This session</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Amount Processed</div>
-      <div class="stat-value amber">₹28,000</div>
+      <div class="stat-value amber" id="statAmountProcessed">₹0</div>
       <div class="stat-sub">Across 1 supplier</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Emails Sent</div>
-      <div class="stat-value">8</div>
+      <div class="stat-value" id="statEmailsSent">0</div>
       <div class="stat-sub">Quote requests</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Approval Events</div>
-      <div class="stat-value coral">1</div>
+      <div class="stat-value coral" id="statApprovals">0</div>
       <div class="stat-sub">Human interventions</div>
     </div>
   </div>
@@ -118,49 +118,201 @@
 </div>
 
 <script>
-const AUDIT = [
-  {n:1,action:'Agent initialized',detail:'Request parsed: 1000kg cotton yarn, ₹300/kg max',type:'search',typeCls:'b-search',supplier:'—',amount:'—',time:'14:02:11'},
-  {n:2,action:'Supplier search',detail:'Exa API query executed, 12 results',type:'search',typeCls:'b-search',supplier:'—',amount:'—',time:'14:02:13'},
-  {n:3,action:'Web scraping',detail:'Firecrawl scraped 12 supplier pages',type:'search',typeCls:'b-search',supplier:'—',amount:'—',time:'14:02:16'},
-  {n:4,action:'Data enrichment',detail:'GSTIN validation, Apollo company scores',type:'enrich',typeCls:'b-enrich',supplier:'8 suppliers',amount:'—',time:'14:02:21'},
-  {n:5,action:'Supplier ranking',detail:'Ranked by price × delivery × verification',type:'enrich',typeCls:'b-enrich',supplier:'8 suppliers',amount:'—',time:'14:02:24'},
-  {n:6,action:'Quote email sent',detail:'To: sales@tamiltex.com',type:'email',typeCls:'b-email',supplier:'TamilTex Mills',amount:'—',time:'14:02:26'},
-  {n:7,action:'Quote emails sent (7)',detail:'Bulk quote requests dispatched via Resend',type:'email',typeCls:'b-email',supplier:'7 suppliers',amount:'—',time:'14:02:27'},
-  {n:8,action:'Supplier selected',detail:'TamilTex Mills — Score 92, ₹280/kg',type:'escrow',typeCls:'b-escrow',supplier:'TamilTex Mills',amount:'₹280/kg',time:'14:02:30'},
-  {n:9,action:'Escrow created',detail:'Locus virtual escrow initialized',type:'escrow',typeCls:'b-escrow',supplier:'TamilTex Mills',amount:'₹28,000',time:'14:02:32'},
-  {n:10,action:'Approval requested',detail:'Amount ₹28,000 exceeds ₹2,000 threshold',type:'approval',typeCls:'b-approval',supplier:'TamilTex Mills',amount:'₹28,000',time:'14:02:33'},
-  {n:11,action:'Payment approved',detail:'Human approver authorized transaction',type:'approval',typeCls:'b-approval',supplier:'TamilTex Mills',amount:'₹28,000',time:'14:03:01'},
-  {n:12,action:'Escrow locked',detail:'Funds locked pending shipment proof',type:'escrow',typeCls:'b-escrow',supplier:'TamilTex Mills',amount:'₹28,000',time:'14:03:02'},
-];
+const API_BASE = localStorage.getItem('paygenticApiBase') || 'http://localhost:8000';
+const rowsForExport = [];
 
-const icons = {search:'🔍',enrich:'✨',email:'📧',escrow:'🔒',approval:'⚠',release:'✅'};
-const iconBg = {search:'rgba(56,189,248,0.12)',enrich:'rgba(167,139,250,0.12)',email:'rgba(251,191,36,0.12)',escrow:'rgba(110,231,183,0.12)',approval:'rgba(248,113,113,0.12)',release:'rgba(74,222,128,0.12)'};
+const icons = { search: '🔍', enrich: '✨', email: '📧', escrow: '🔒', approval: '⚠', release: '✅', wallet: '💳' };
+const iconBg = {
+  search: 'rgba(56,189,248,0.12)',
+  enrich: 'rgba(167,139,250,0.12)',
+  email: 'rgba(251,191,36,0.12)',
+  escrow: 'rgba(110,231,183,0.12)',
+  approval: 'rgba(248,113,113,0.12)',
+  release: 'rgba(74,222,128,0.12)',
+  wallet: 'rgba(56,189,248,0.12)'
+};
 
-document.getElementById('auditRows').innerHTML = AUDIT.map(a => `
-  <div class="audit-row">
-    <div class="step-num">${String(a.n).padStart(2,'0')}</div>
-    <div class="action-cell">
-      <div class="action-icon" style="background:${iconBg[a.type]||iconBg.search}">${icons[a.type]||'•'}</div>
-      <div>
-        <div class="action-name">${a.action}</div>
-        <div class="action-detail">${a.detail}</div>
+function formatINR(value) {
+  const num = Number(value || 0);
+  return `₹${num.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+}
+
+function fetchJson(path) {
+  return fetch(`${API_BASE}${path}`).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.detail || `Request failed (${response.status})`);
+    }
+    return payload;
+  });
+}
+
+function classify(actionText) {
+  const action = String(actionText || '').toLowerCase();
+
+  if (action.includes('search') || action.includes('parse')) return { type: 'search', typeCls: 'b-search' };
+  if (action.includes('enrich')) return { type: 'enrich', typeCls: 'b-enrich' };
+  if (action.includes('email') || action.includes('quote')) return { type: 'email', typeCls: 'b-email' };
+  if (action.includes('approve') || action.includes('reject') || action.includes('approval')) return { type: 'approval', typeCls: 'b-approval' };
+  if (action.includes('release')) return { type: 'release', typeCls: 'b-release' };
+  if (action.includes('wallet') || action.includes('micropayment') || action.includes('spend')) return { type: 'wallet', typeCls: 'b-search' };
+  return { type: 'escrow', typeCls: 'b-escrow' };
+}
+
+function toTime(ts) {
+  const date = new Date(ts);
+  return Number.isNaN(date.getTime()) ? '--' : date.toLocaleTimeString();
+}
+
+function normalizeAudit(entries) {
+  return entries.map((item) => {
+    const meta = classify(item.action);
+    return {
+      action: item.action || 'audit_event',
+      detail: `${item.entity || 'entity'} • ${item.status || 'status'}`,
+      type: meta.type,
+      typeCls: meta.typeCls,
+      supplier: item.entity || '—',
+      amount: Number(item.amount || 0),
+      timestamp: item.timestamp,
+      sortTs: new Date(item.timestamp || 0).getTime()
+    };
+  });
+}
+
+function normalizeLedger(entries) {
+  return entries.map((item) => {
+    const label = String(item.kind || 'wallet_event').replace(/_/g, ' ');
+    const meta = classify(label);
+    const provider = item.metadata?.provider ? `provider=${item.metadata.provider}` : '';
+    const status = item.status || 'logged';
+
+    return {
+      action: label,
+      detail: [provider, status].filter(Boolean).join(' • ') || 'wallet event',
+      type: meta.type,
+      typeCls: meta.typeCls,
+      supplier: item.session_id || 'manual',
+      amount: Number(item.amount || 0),
+      timestamp: item.timestamp,
+      sortTs: new Date(item.timestamp || 0).getTime()
+    };
+  });
+}
+
+function renderStats(events) {
+  const total = events.length;
+  const amount = events.reduce((sum, event) => sum + Math.max(0, Number(event.amount || 0)), 0);
+  const emails = events.filter((event) => String(event.action).toLowerCase().includes('email') || String(event.action).toLowerCase().includes('quote')).length;
+  const approvals = events.filter((event) => String(event.action).toLowerCase().includes('approve') || String(event.action).toLowerCase().includes('reject') || String(event.action).toLowerCase().includes('approval')).length;
+
+  document.getElementById('statTotalActions').textContent = String(total);
+  document.getElementById('statAmountProcessed').textContent = formatINR(amount);
+  document.getElementById('statEmailsSent').textContent = String(emails);
+  document.getElementById('statApprovals').textContent = String(approvals);
+}
+
+function renderRows(events) {
+  const container = document.getElementById('auditRows');
+  rowsForExport.length = 0;
+
+  if (!events.length) {
+    container.innerHTML = `
+      <div class="audit-row">
+        <div class="step-num">--</div>
+        <div class="action-cell">
+          <div class="action-icon" style="background:${iconBg.search}">ℹ</div>
+          <div>
+            <div class="action-name">No audit entries yet</div>
+            <div class="action-detail">Run a sourcing session from the dashboard.</div>
+          </div>
+        </div>
+        <div><span class="badge b-search">info</span></div>
+        <div class="mono" style="font-size:12px;">—</div>
+        <div class="mono" style="color:var(--muted);">—</div>
+        <div class="ts">—</div>
       </div>
-    </div>
-    <div><span class="badge ${a.typeCls}">${a.type}</span></div>
-    <div class="mono" style="font-size:12px;">${a.supplier}</div>
-    <div class="mono" style="color:${a.amount==='—'?'var(--muted)':'var(--amber)'};">${a.amount}</div>
-    <div class="ts">${a.time}</div>
-  </div>
-`).join('');
+    `;
+    return;
+  }
+
+  container.innerHTML = events.map((event, index) => {
+    const amountLabel = event.amount > 0 ? formatINR(event.amount) : '—';
+    const row = {
+      n: index + 1,
+      action: event.action,
+      type: event.type,
+      supplier: event.supplier,
+      amount: amountLabel,
+      time: toTime(event.timestamp)
+    };
+    rowsForExport.push(row);
+
+    return `
+      <div class="audit-row">
+        <div class="step-num">${String(row.n).padStart(2, '0')}</div>
+        <div class="action-cell">
+          <div class="action-icon" style="background:${iconBg[event.type] || iconBg.search}">${icons[event.type] || '•'}</div>
+          <div>
+            <div class="action-name">${event.action}</div>
+            <div class="action-detail">${event.detail}</div>
+          </div>
+        </div>
+        <div><span class="badge ${event.typeCls}">${event.type}</span></div>
+        <div class="mono" style="font-size:12px;">${event.supplier || '—'}</div>
+        <div class="mono" style="color:${amountLabel === '—' ? 'var(--muted)' : 'var(--amber)'};">${amountLabel}</div>
+        <div class="ts">${row.time}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function bootstrapAudit() {
+  try {
+    const [auditTrail, ledger] = await Promise.all([
+      fetchJson('/api/audit-trail'),
+      fetchJson('/api/wallet-ledger?limit=200')
+    ]);
+
+    const events = [...normalizeAudit(auditTrail), ...normalizeLedger(ledger)]
+      .sort((a, b) => b.sortTs - a.sortTs)
+      .slice(0, 200);
+
+    renderStats(events);
+    renderRows(events);
+  } catch (error) {
+    document.getElementById('auditRows').innerHTML = `
+      <div class="audit-row">
+        <div class="step-num">--</div>
+        <div class="action-cell">
+          <div class="action-icon" style="background:${iconBg.approval}">⚠</div>
+          <div>
+            <div class="action-name">Failed to load audit trail</div>
+            <div class="action-detail">${error.message}</div>
+          </div>
+        </div>
+        <div><span class="badge b-approval">error</span></div>
+        <div class="mono" style="font-size:12px;">—</div>
+        <div class="mono" style="color:var(--muted);">—</div>
+        <div class="ts">—</div>
+      </div>
+    `;
+  }
+}
 
 function exportCSV() {
-  const rows = ['#,Action,Type,Supplier,Amount,Timestamp', ...AUDIT.map(a=>`${a.n},"${a.action}",${a.type},${a.supplier},${a.amount},${a.time}`)];
-  const blob = new Blob([rows.join('\n')], {type:'text/csv'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'paygentic_audit.csv';
-  a.click();
+  const rows = [
+    '#,Action,Type,Supplier,Amount,Timestamp',
+    ...rowsForExport.map((row) => `${row.n},"${row.action}",${row.type},"${row.supplier}",${row.amount},${row.time}`)
+  ];
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const anchor = document.createElement('a');
+  anchor.href = URL.createObjectURL(blob);
+  anchor.download = 'paygentic_audit.csv';
+  anchor.click();
 }
+
+bootstrapAudit();
 </script>
 </body>
 </html>

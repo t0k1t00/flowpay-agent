@@ -3,7 +3,9 @@
 import uuid
 from datetime import datetime
 from typing import List
+
 from models import Supplier, ParsedRequest
+from services.spending_controls import charge_api_usage
 
 
 def generate_email_body(supplier: Supplier, parsed: ParsedRequest) -> dict:
@@ -25,7 +27,7 @@ PayGentic Procurement Agent
     }
 
 
-def send_quote_emails(suppliers: List[Supplier], parsed: ParsedRequest) -> List[dict]:
+def send_quote_emails(suppliers: List[Supplier], parsed: ParsedRequest, session_id: str = "manual") -> List[dict]:
     """
     Send quote request emails via Resend API.
     In production: 
@@ -33,6 +35,14 @@ def send_quote_emails(suppliers: List[Supplier], parsed: ParsedRequest) -> List[
       resend.api_key = os.environ["RESEND_API_KEY"]
       resend.Emails.send({from: ..., to: ..., subject: ..., text: ...})
     """
+    if suppliers:
+        charge_api_usage(
+            provider="resend",
+            amount=0.01 * len(suppliers),
+            session_id=session_id,
+            metadata={"emails": len(suppliers), "material": parsed.material},
+        )
+
     results = []
     for supplier in suppliers:
         email = generate_email_body(supplier, parsed)

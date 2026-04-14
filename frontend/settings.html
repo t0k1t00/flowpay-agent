@@ -129,11 +129,19 @@
       <div class="ss-body">
         <div class="setting-row">
           <div><div class="setting-label">Auto-approve threshold</div><div class="setting-desc">Transactions below this amount are auto-approved</div></div>
-          <input class="setting-input" value="2000" type="number"/>
+          <input class="setting-input" id="autoApproveThreshold" value="2000" type="number"/>
         </div>
         <div class="setting-row">
           <div><div class="setting-label">Monthly spending limit</div><div class="setting-desc">Agent will pause if this limit is reached</div></div>
-          <input class="setting-input" value="30000" type="number"/>
+          <input class="setting-input" id="monthlySpendLimit" value="30000" type="number"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Daily spending limit</div><div class="setting-desc">Maximum total spend allowed per day</div></div>
+          <input class="setting-input" id="dailySpendLimit" value="10000" type="number"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Allowed categories</div><div class="setting-desc">Comma-separated vendor categories the agent can transact with</div></div>
+          <input class="setting-input" id="allowedCategories" value="cotton yarn,textile dye,steel rod,machine parts" type="text" style="width:320px;"/>
         </div>
         <div class="setting-row">
           <div><div class="setting-label">Escrow provider</div><div class="setting-desc">Payment partner for fund custody</div></div>
@@ -188,16 +196,68 @@
 </div>
 
 <script>
+const API_BASE = localStorage.getItem('paygenticApiBase') || 'http://localhost:8000';
+
 function toggleKey(id) {
   const inp = document.getElementById(id);
   inp.type = inp.type === 'password' ? 'text' : 'password';
 }
-function save() {
+
+async function loadSpendingControls() {
+  try {
+    const response = await fetch(`${API_BASE}/api/spending-controls`);
+    if (!response.ok) return;
+    const data = await response.json();
+
+    document.getElementById('autoApproveThreshold').value = Number(data.auto_approve_threshold || 2000);
+    document.getElementById('monthlySpendLimit').value = Number(data.monthly_spend_limit || 30000);
+    document.getElementById('dailySpendLimit').value = Number(data.daily_spend_limit || 10000);
+    document.getElementById('allowedCategories').value = Array.isArray(data.allowed_categories)
+      ? data.allowed_categories.join(',')
+      : 'cotton yarn,textile dye,steel rod,machine parts';
+  } catch {
+    // Keep default values when backend is unavailable.
+  }
+}
+
+async function save() {
+  const autoApproveThreshold = Number(document.getElementById('autoApproveThreshold').value || 2000);
+  const monthlySpendLimit = Number(document.getElementById('monthlySpendLimit').value || 30000);
+  const dailySpendLimit = Number(document.getElementById('dailySpendLimit').value || 10000);
+  const allowedCategories = document.getElementById('allowedCategories').value
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+
+  try {
+    const response = await fetch(`${API_BASE}/api/spending-controls`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        auto_approve_threshold: autoApproveThreshold,
+        monthly_spend_limit: monthlySpendLimit,
+        daily_spend_limit: dailySpendLimit,
+        allowed_categories: allowedCategories.length
+          ? allowedCategories
+          : ['cotton yarn', 'textile dye', 'steel rod', 'machine parts']
+      })
+    });
+    if (!response.ok) throw new Error('Failed to save settings');
+  } catch {
+    const btn = document.querySelector('.save-btn');
+    btn.textContent = 'Save Failed';
+    btn.style.background = 'var(--coral)';
+    setTimeout(() => { btn.textContent = 'Save Settings'; btn.style.background = ''; }, 2000);
+    return;
+  }
+
   const btn = document.querySelector('.save-btn');
   btn.textContent = '✓ Saved';
   btn.style.background = 'var(--green)';
   setTimeout(() => { btn.textContent = 'Save Settings'; btn.style.background = ''; }, 2000);
 }
+
+loadSpendingControls();
 </script>
 </body>
 </html>

@@ -14,7 +14,8 @@ class ConnectionManager:
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
 
     async def broadcast(self, message: str):
         dead = []
@@ -24,7 +25,8 @@ class ConnectionManager:
             except Exception:
                 dead.append(connection)
         for d in dead:
-            self.active_connections.remove(d)
+            if d in self.active_connections:
+                self.active_connections.remove(d)
 
     async def send_to(self, websocket: WebSocket, message: str):
         await websocket.send_text(message)

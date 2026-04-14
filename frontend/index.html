@@ -444,55 +444,6 @@
   .btn-refund:hover { background: rgba(56,189,248,0.18); }
 
   .highlight-row { color: var(--amber) !important; }
-  .main {
-    min-height: 0;
-  }
-
-  .panel,
-  .center-panel,
-  .panel-body,
-  .supplier-grid,
-  #auditPanel {
-    min-height: 0;
-  }
-
-  .panel {
-    overflow: hidden;
-  }
-
-  .panel-body,
-  .supplier-grid,
-  .audit-timeline {
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,0.18) transparent;
-  }
-
-  .panel-body::-webkit-scrollbar,
-  .supplier-grid::-webkit-scrollbar,
-  .audit-timeline::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  .panel-body::-webkit-scrollbar-track,
-  .supplier-grid::-webkit-scrollbar-track,
-  .audit-timeline::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .panel-body::-webkit-scrollbar-thumb,
-  .supplier-grid::-webkit-scrollbar-thumb,
-  .audit-timeline::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.18);
-    border-radius: 10px;
-  }
-
-  .panel-body::-webkit-scrollbar-thumb:hover,
-  .supplier-grid::-webkit-scrollbar-thumb:hover,
-  .audit-timeline::-webkit-scrollbar-thumb:hover {
-    background: rgba(255,255,255,0.3);
-  }
-
 </style>
 </head>
 <body>
@@ -653,65 +604,79 @@
 </div>
 
 <script>
-// ── Mock Data ──
-const SUPPLIERS = [
-  { id:'sup_001', name:'TamilTex Mills', location:'Coimbatore', price:280, delivery:4, verified:true, gstin:'33ABCDE1234F1Z5', email:'sales@tamiltex.com', score:92, recommended:true, phone:'+91-422-2345678' },
-  { id:'sup_002', name:'Bharat Yarn Co.', location:'Surat', price:295, delivery:3, verified:true, gstin:'24FGHIJ5678K2A6', email:'info@bharatyarn.in', score:87, recommended:false, phone:'+91-261-3456789' },
-  { id:'sup_003', name:'Nithya Fibres', location:'Tiruppur', price:265, delivery:6, verified:false, gstin:'33LMNOP9012L3B7', email:'nithya.fibres@gmail.com', score:74, recommended:false, phone:'+91-421-4567890' },
-  { id:'sup_004', name:'Arjun Textiles', location:'Ahmedabad', price:310, delivery:3, verified:true, gstin:'24QRSTU3456M4C8', email:'procurement@arjuntex.com', score:81, recommended:false, phone:'+91-79-5678901' },
-  { id:'sup_005', name:'Sri Lakshmi Threads', location:'Erode', price:272, delivery:5, verified:true, gstin:'33VWXYZ7890N5D9', email:'sales@srilakshmi.co.in', score:89, recommended:false, phone:'+91-424-6789012' },
-  { id:'sup_006', name:'Horizon Yarn Industries', location:'Mumbai', price:300, delivery:2, verified:true, gstin:'27ABCDE2345O6E1', email:'orders@horizonyarn.com', score:85, recommended:false, phone:'+91-22-7890123' },
-  { id:'sup_007', name:'Deepika Cotton Works', location:'Salem', price:258, delivery:7, verified:false, gstin:'33FGHIJ6789P7F2', email:'deepika.cotton@yahoo.com', score:68, recommended:false, phone:'+91-427-8901234' },
-  { id:'sup_008', name:'Megha Fibre Industries', location:'Ludhiana', price:285, delivery:5, verified:true, gstin:'03KLMNO0123Q8G3', email:'megha@mfibre.in', score:83, recommended:false, phone:'+91-161-9012345' }
-];
+const API_BASE = localStorage.getItem('paygenticApiBase') || 'http://localhost:8000';
+const WS_BASE = API_BASE.replace(/^http/i, 'ws');
 
-const LOGS = [
-  { icon:'🔍', type:'search', action:'Parsing request', detail:'Extracted: cotton yarn, 1000kg, ₹300/kg, 5 days, Tamil Nadu', time:'0s' },
-  { icon:'🌐', type:'search', action:'Supplier search via Exa API', detail:'Query: "cotton yarn supplier India wholesale"', time:'1.2s' },
-  { icon:'🕷', type:'search', action:'Firecrawl scraping', detail:'Scraped 12 supplier websites for pricing & contact', time:'3.1s' },
-  { icon:'✨', type:'enrich', action:'Enriching supplier data', detail:'Apollo API: GSTIN validation, company scores', time:'5.4s' },
-  { icon:'📊', type:'enrich', action:'Ranking suppliers', detail:'Scoring by price, delivery, verification, location', time:'7.2s' },
-  { icon:'📧', type:'email', action:'Sending quote requests', detail:'Resend API: 8 emails dispatched', time:'9.1s' },
-  { icon:'🏆', type:'ok', action:'Best supplier selected', detail:'TamilTex Mills — Score 92, ₹280/kg, 4 days', time:'9.8s' },
-  { icon:'🔒', type:'escrow', action:'Creating escrow payment', detail:'Amount: ₹28,000 for 1000kg @ ₹280/kg', time:'11.2s' },
-  { icon:'⚠', type:'warn', action:'Spending limit check', detail:'₹28,000 exceeds threshold ₹2,000 — requesting approval', time:'11.5s' },
-];
-
-let state = {
-  running: false,
-  logStep: 0,
-  suppliersShown: false,
-  walletBalance: 50000,
-  spent: 0,
-  escrowAmt: 0,
-  escrowStatus: 'idle',
-  selectedSupplier: null,
+const STEP_META = {
+  parse: { icon: '🧠', cls: 'ok' },
+  search: { icon: '🔍', cls: 'search' },
+  enrich: { icon: '✨', cls: 'enrich' },
+  email: { icon: '📧', cls: 'email' },
+  select: { icon: '🏆', cls: 'ok' },
+  escrow: { icon: '🔒', cls: 'escrow' },
+  warn: { icon: '⚠', cls: 'warn' },
+  error: { icon: '⚠', cls: 'warn' }
 };
 
-function formatINR(n) { return '₹' + n.toLocaleString('en-IN'); }
+const ESCROW_STATUS = {
+  pending_approval: { text: 'Pending Approval', cls: 's-pending' },
+  locked: { text: 'Locked', cls: 's-locked' },
+  released: { text: 'Released', cls: 's-released' },
+  refunded: { text: 'Refunded', cls: 's-refunded' },
+  rejected: { text: 'Rejected', cls: 's-blocked' }
+};
 
-function addLog(log) {
+const state = {
+  running: false,
+  sessionId: null,
+  socket: null,
+  socketPromise: null,
+  pingInterval: null,
+  suppliers: [],
+  escrowId: null,
+  quantityKg: 1000,
+  material: 'cotton yarn',
+  maxBudgetPerKg: 300,
+  deliveryDays: 7,
+  monthlyLimit: 30000,
+  approvalThreshold: 2000
+};
+
+function formatINR(value) {
+  const num = Number(value || 0);
+  return '₹' + num.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+}
+
+function localTime(ts) {
+  if (!ts) return '--';
+  const date = new Date(ts);
+  return Number.isNaN(date.getTime()) ? '--' : date.toLocaleTimeString();
+}
+
+function addLog({ step, action, detail, ts, level }) {
   const container = document.getElementById('agentLogs');
   if (container.querySelector('.empty-state')) container.innerHTML = '';
-  const el = document.createElement('div');
-  el.className = 'log-entry';
-  el.innerHTML = `
-    <div class="log-icon ${log.type}">${log.icon}</div>
+
+  const meta = STEP_META[step] || STEP_META[level] || STEP_META.ok || { icon: '•', cls: 'ok' };
+  const row = document.createElement('div');
+  row.className = 'log-entry';
+  row.innerHTML = `
+    <div class="log-icon ${meta.cls}">${meta.icon}</div>
     <div class="log-text">
-      <div class="log-action">${log.action}</div>
-      <div class="log-detail">${log.detail}</div>
+      <div class="log-action">${action || 'Update'}</div>
+      <div class="log-detail">${detail || ''}</div>
     </div>
-    <div class="log-time">${log.time}</div>
+    <div class="log-time">${localTime(ts)}</div>
   `;
-  container.appendChild(el);
+  container.appendChild(row);
   container.scrollTop = container.scrollHeight;
 }
 
 function addAudit(action, detail, color, badge) {
   const container = document.getElementById('auditTimeline');
-  const el = document.createElement('div');
-  el.className = 'audit-item';
-  el.innerHTML = `
+  const row = document.createElement('div');
+  row.className = 'audit-item';
+  row.innerHTML = `
     <div class="audit-dot" style="background:${color}"></div>
     <div class="audit-info">
       <div class="audit-action">${action}</div>
@@ -720,170 +685,435 @@ function addAudit(action, detail, color, badge) {
     </div>
     ${badge ? `<span class="status-badge ${badge.cls}">${badge.text}</span>` : ''}
   `;
-  container.appendChild(el);
+  container.appendChild(row);
   container.scrollTop = container.scrollHeight;
 }
 
-function renderSuppliers(suppliers) {
+function parseRequestHints(query) {
+  const lower = query.toLowerCase();
+  const qtyMatch = query.match(/(\d[\d,]*)\s*kg/i);
+  const budgetMatch = query.match(/(?:₹|rs\.?|inr)?\s*(\d+(?:\.\d+)?)\s*(?:\/\s*kg|per\s*kg)/i);
+  const deliveryMatch = query.match(/(\d+)\s*days?/i);
+
+  state.quantityKg = qtyMatch ? Number(qtyMatch[1].replace(/,/g, '')) : 1000;
+  state.maxBudgetPerKg = budgetMatch ? Number(budgetMatch[1]) : 300;
+  state.deliveryDays = deliveryMatch ? Number(deliveryMatch[1]) : 7;
+
+  if (lower.includes('cotton') || lower.includes('yarn')) state.material = 'cotton yarn';
+  else if (lower.includes('steel')) state.material = 'steel rod';
+  else if (lower.includes('dye')) state.material = 'textile dye';
+  else if (lower.includes('machine') || lower.includes('parts')) state.material = 'machine parts';
+}
+
+function setRunningState(running, label, statusText) {
+  state.running = running;
+  const startBtn = document.getElementById('startBtn');
+  startBtn.disabled = running;
+  startBtn.textContent = label;
+  document.getElementById('agentStatus').textContent = statusText;
+}
+
+function clearRunUI() {
+  document.getElementById('agentLogs').innerHTML = '<div class="empty-state"><div class="empty-icon">⚙</div><div class="empty-text">Agent will stream logs here in real-time</div></div>';
+  document.getElementById('supplierGrid').innerHTML = '<div class="empty-state"><div class="empty-icon">🏭</div><div class="empty-text">Supplier cards will appear here after agent searches</div></div>';
+  document.getElementById('supplierCount').textContent = 'No suppliers loaded';
+  state.suppliers = [];
+  state.escrowId = null;
+}
+
+async function apiJson(path, options = {}) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    }
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.detail || `Request failed with status ${response.status}`);
+  }
+  return payload;
+}
+
+function mapSupplier(raw) {
+  return {
+    id: raw.id,
+    name: raw.company_name || raw.name,
+    location: raw.location,
+    price: raw.price_per_kg || raw.price,
+    delivery: raw.delivery_days || raw.delivery,
+    verified: Boolean(raw.verified),
+    gstin: raw.gstin,
+    email: raw.email,
+    score: raw.score,
+    recommended: Boolean(raw.recommended),
+    category: raw.category || 'general'
+  };
+}
+
+function renderSuppliers(rawSuppliers) {
+  const suppliers = rawSuppliers.map(mapSupplier);
+  state.suppliers = suppliers;
+
   const grid = document.getElementById('supplierGrid');
+  if (!suppliers.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🏭</div><div class="empty-text">No suppliers matched this request</div></div>';
+    document.getElementById('supplierCount').textContent = '0 suppliers found';
+    return;
+  }
+
   grid.innerHTML = '';
-  suppliers.forEach(s => {
+  suppliers.forEach((supplier) => {
     const card = document.createElement('div');
-    card.className = 'supplier-card' + (s.recommended ? ' recommended' : '');
+    card.className = 'supplier-card' + (supplier.recommended ? ' recommended' : '');
     card.innerHTML = `
       <div class="card-top">
         <div>
-          <div class="card-company">${s.name}</div>
-          <div class="card-location">📍 ${s.location}</div>
+          <div class="card-company">${supplier.name}</div>
+          <div class="card-location">📍 ${supplier.location}</div>
         </div>
-        <div class="score-badge">${s.score}</div>
+        <div class="score-badge">${supplier.score}</div>
       </div>
       <div class="card-metrics">
         <div class="metric">
           <div class="metric-label">Price/kg</div>
-          <div class="metric-value">₹${s.price}</div>
+          <div class="metric-value">${formatINR(supplier.price)}</div>
         </div>
         <div class="metric">
           <div class="metric-label">Delivery</div>
-          <div class="metric-value">${s.delivery}d</div>
+          <div class="metric-value">${supplier.delivery}d</div>
         </div>
         <div class="metric">
           <div class="metric-label">Score</div>
-          <div class="metric-value">${s.score}/100</div>
+          <div class="metric-value">${supplier.score}/100</div>
         </div>
       </div>
       <div class="card-meta">
-        ${s.verified ? '<span class="tag tag-verified">✓ Verified</span>' : ''}
-        ${s.recommended ? '<span class="tag tag-recommended">★ Recommended</span>' : ''}
-        <span class="tag tag-gstin">${s.gstin}</span>
+        ${supplier.verified ? '<span class="tag tag-verified">✓ Verified</span>' : ''}
+        ${supplier.recommended ? '<span class="tag tag-recommended">★ Recommended</span>' : ''}
+        <span class="tag tag-gstin">${supplier.gstin || 'GSTIN N/A'}</span>
       </div>
       <div class="card-actions">
-        <button class="btn btn-ghost" onclick="viewSupplier('${s.id}')">Details</button>
-        <button class="btn btn-outline" onclick="sendQuote('${s.id}')">Send Quote</button>
-        <button class="btn btn-primary" onclick="selectSupplier('${s.id}')">Select</button>
+        <button class="btn btn-ghost" onclick="viewSupplier('${supplier.id}')">Details</button>
+        <button class="btn btn-outline" onclick="sendQuote('${supplier.id}')">Send Quote</button>
+        <button class="btn btn-primary" onclick="selectSupplier('${supplier.id}')">Select</button>
       </div>
     `;
     grid.appendChild(card);
   });
-  document.getElementById('supplierCount').textContent = `${suppliers.length} suppliers found • 1 recommended`;
+
+  const recommendedCount = suppliers.filter(item => item.recommended).length;
+  document.getElementById('supplierCount').textContent = `${suppliers.length} suppliers found • ${recommendedCount} recommended`;
+}
+
+function setEscrowUI(escrow) {
+  if (!escrow) return;
+
+  state.escrowId = escrow.id;
+  document.getElementById('escrowAmt').textContent = formatINR(escrow.amount || 0);
+  document.getElementById('escrowSupplier').textContent = escrow.supplier || '—';
+
+  const statusMeta = ESCROW_STATUS[escrow.status] || { text: escrow.status || 'Unknown', cls: 's-pending' };
+  const escrowStatus = document.getElementById('escrowStatus');
+  escrowStatus.textContent = statusMeta.text;
+  escrowStatus.className = `status-badge ${statusMeta.cls}`;
+
+  const approvalStatus = document.getElementById('approvalStatus');
+  if (escrow.status === 'pending_approval') {
+    approvalStatus.textContent = 'Awaiting Approval';
+    approvalStatus.className = 'status-badge s-pending';
+  } else if (escrow.status === 'rejected') {
+    approvalStatus.textContent = 'Rejected';
+    approvalStatus.className = 'status-badge s-blocked';
+  } else {
+    approvalStatus.textContent = 'Approved';
+    approvalStatus.className = 'status-badge s-approved';
+  }
+}
+
+function updateWallet(wallet) {
+  if (!wallet) return;
+
+  document.getElementById('walletBalance').textContent = formatINR(wallet.balance || 0);
+  document.getElementById('spentAmt').textContent = formatINR(wallet.spent || 0);
+
+  const limit = Number(wallet.limit || state.monthlyLimit || 1);
+  state.monthlyLimit = limit;
+  const spent = Number(wallet.spent || 0);
+  const percent = Math.min(100, (spent / Math.max(1, limit)) * 100);
+  document.getElementById('spendBar').style.width = `${percent}%`;
+
+  const spendLabelRow = document.querySelector('.spend-bar-label span:last-child');
+  if (spendLabelRow) spendLabelRow.textContent = `Limit: ${formatINR(limit)}`;
+}
+
+function showApproval(payload) {
+  const threshold = Number(payload.threshold || 0);
+  const amount = Number(payload.amount || 0);
+
+  document.getElementById('modalSupplier').textContent = payload.supplier || 'Unknown';
+  document.getElementById('modalAmount').textContent = formatINR(amount);
+  document.getElementById('modalQty').textContent = `${state.quantityKg} kg @ ${formatINR(amount / Math.max(1, state.quantityKg))}/kg`;
+  document.getElementById('modalExcess').textContent = formatINR(Math.max(0, amount - threshold));
+  document.getElementById('approvalOverlay').classList.add('show');
+}
+
+function hideApproval() {
+  document.getElementById('approvalOverlay').classList.remove('show');
+}
+
+function handleSocketEvent(payload) {
+  if (!payload || !payload.type) return;
+
+  if (payload.session_id && state.sessionId && payload.session_id !== state.sessionId) {
+    return;
+  }
+
+  if (payload.type === 'connected') {
+    addLog({ step: 'ok', action: 'WebSocket connected', detail: 'Live agent stream is ready', ts: payload.ts });
+    return;
+  }
+
+  if (payload.type === 'log') {
+    addLog(payload);
+    return;
+  }
+
+  if (payload.type === 'suppliers') {
+    renderSuppliers(payload.data || []);
+    addAudit('Suppliers ranked', `${(payload.data || []).length} suppliers available`, 'var(--accent2)', null);
+    return;
+  }
+
+  if (payload.type === 'escrow') {
+    setEscrowUI(payload.data);
+    addAudit('Escrow updated', `${payload.data?.supplier || 'Supplier'} • ${formatINR(payload.data?.amount || 0)}`, 'var(--purple)', null);
+    return;
+  }
+
+  if (payload.type === 'approval_required') {
+    state.escrowId = payload.escrow_id;
+    showApproval(payload);
+    setRunningState(false, '▶ Start Agent', 'Awaiting approval');
+    addAudit('Approval required', `${formatINR(payload.amount || 0)} exceeds threshold`, 'var(--amber)', { cls: 's-pending', text: 'Pending' });
+    return;
+  }
+
+  if (payload.type === 'approval_result') {
+    if (payload.approved) {
+      addLog({ step: 'ok', action: 'Payment approved', detail: 'Escrow moved to locked state', ts: payload.ts });
+      addAudit('Payment approved', `Escrow ${payload.escrow_id} approved`, 'var(--green)', { cls: 's-approved', text: 'Approved' });
+      hideApproval();
+    } else {
+      addLog({ step: 'warn', action: 'Payment rejected', detail: 'Escrow rejected by human reviewer', ts: payload.ts });
+      addAudit('Payment rejected', `Escrow ${payload.escrow_id} rejected`, 'var(--coral)', { cls: 's-blocked', text: 'Blocked' });
+      hideApproval();
+    }
+    return;
+  }
+
+  if (payload.type === 'wallet') {
+    updateWallet(payload.data);
+    return;
+  }
+
+  if (payload.type === 'pipeline_done') {
+    setRunningState(false, '▶ Start Agent', 'Completed');
+    addLog({ step: 'ok', action: 'Pipeline complete', detail: 'Sourcing session completed successfully', ts: payload.ts });
+    return;
+  }
+
+  if (payload.type === 'pipeline_error') {
+    setRunningState(false, '▶ Start Agent', 'Failed');
+    addLog({ step: 'error', action: 'Pipeline failed', detail: payload.message || 'Unknown error', ts: payload.ts, level: 'error' });
+  }
+}
+
+function ensureSocket() {
+  if (state.socket && state.socket.readyState === WebSocket.OPEN) {
+    return Promise.resolve();
+  }
+  if (state.socketPromise) {
+    return state.socketPromise;
+  }
+
+  state.socketPromise = new Promise((resolve, reject) => {
+    try {
+      const socket = new WebSocket(`${WS_BASE}/ws/logs`);
+      state.socket = socket;
+
+      socket.onopen = () => {
+        if (state.pingInterval) clearInterval(state.pingInterval);
+        state.pingInterval = setInterval(() => {
+          if (state.socket && state.socket.readyState === WebSocket.OPEN) {
+            state.socket.send('ping');
+          }
+        }, 15000);
+        resolve();
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          handleSocketEvent(payload);
+        } catch {
+          // Ignore malformed messages.
+        }
+      };
+
+      socket.onerror = () => {
+        reject(new Error('Failed to connect to websocket stream'));
+      };
+
+      socket.onclose = () => {
+        if (state.pingInterval) {
+          clearInterval(state.pingInterval);
+          state.pingInterval = null;
+        }
+        state.socket = null;
+      };
+    } catch (error) {
+      reject(error);
+    }
+  }).finally(() => {
+    state.socketPromise = null;
+  });
+
+  return state.socketPromise;
 }
 
 async function startAgent() {
   const input = document.getElementById('requestInput').value.trim();
-  if (!input) return;
-  if (state.running) return;
-  state.running = true;
+  if (!input || state.running) return;
 
-  document.getElementById('startBtn').disabled = true;
-  document.getElementById('startBtn').textContent = '⟳ Agent Running...';
-  document.getElementById('agentLogs').innerHTML = '';
-  document.getElementById('supplierGrid').innerHTML = '<div class="empty-state"><div class="empty-icon">⟳</div><div class="empty-text">Agent searching...</div></div>';
+  parseRequestHints(input);
+  clearRunUI();
+  setRunningState(true, '⟳ Agent Running...', 'Running — streaming logs');
 
-  // Show step indicator
-  const indicator = document.createElement('div');
-  indicator.className = 'step-indicator';
-  indicator.id = 'stepIndicator';
-  indicator.innerHTML = '<div class="step-spinner"></div><div class="step-text" id="stepText">Initializing agent...</div>';
-  document.getElementById('agentLogs').appendChild(indicator);
+  try {
+    await ensureSocket();
+    const result = await apiJson('/api/request-source', {
+      method: 'POST',
+      body: JSON.stringify({ query: input })
+    });
 
-  document.getElementById('agentStatus').textContent = 'Running — streaming logs';
-
-  // Stream logs with delays
-  for (let i = 0; i < LOGS.length; i++) {
-    await delay(1200 + Math.random() * 600);
-    document.getElementById('stepText').textContent = LOGS[i].action + '...';
-    addLog(LOGS[i]);
-
-    if (i === 4) {
-      renderSuppliers(SUPPLIERS);
-      addAudit('Suppliers loaded', '8 suppliers ranked and scored', 'var(--accent2)', null);
-    }
-    if (i === 6) {
-      addAudit('Supplier selected', 'TamilTex Mills — ₹280/kg — Score 92', 'var(--accent)', null);
-    }
-    if (i === 7) {
-      state.escrowAmt = 28000;
-      state.selectedSupplier = SUPPLIERS[0];
-      document.getElementById('escrowAmt').textContent = formatINR(28000);
-      document.getElementById('escrowSupplier').textContent = 'TamilTex Mills';
-      document.getElementById('escrowStatus').textContent = 'Locked';
-      document.getElementById('escrowStatus').className = 'status-badge s-locked';
-      addAudit('Escrow created', 'Amount: ₹28,000 locked for TamilTex Mills', 'var(--purple)', {cls:'s-locked', text:'Locked'});
-    }
-    if (i === 8) {
-      document.getElementById('approvalStatus').textContent = 'Awaiting Approval';
-      document.getElementById('approvalStatus').className = 'status-badge s-pending';
-      addAudit('Approval required', 'Amount ₹28,000 exceeds ₹2,000 threshold', 'var(--amber)', {cls:'s-pending', text:'Pending'});
-      await delay(800);
-      showApproval();
-    }
+    state.sessionId = result.session_id;
+    addLog({ step: 'ok', action: 'Session started', detail: `Session ${state.sessionId} queued`, ts: new Date().toISOString() });
+    addAudit('Session created', `Session ${state.sessionId}`, 'var(--accent2)', null);
+  } catch (error) {
+    setRunningState(false, '▶ Start Agent', 'Failed to start');
+    addLog({ step: 'error', action: 'Unable to start agent', detail: error.message, ts: new Date().toISOString() });
   }
-
-  document.getElementById('stepIndicator')?.remove();
-  document.getElementById('startBtn').disabled = false;
-  document.getElementById('startBtn').textContent = '▶ Start Agent';
-  document.getElementById('agentStatus').textContent = 'Completed — awaiting approval';
-  state.running = false;
 }
 
-function showApproval() {
-  document.getElementById('modalSupplier').textContent = 'TamilTex Mills';
-  document.getElementById('modalAmount').textContent = '₹28,000';
-  document.getElementById('modalQty').textContent = '1000 kg @ ₹280/kg';
-  document.getElementById('modalExcess').textContent = '₹26,000';
-  document.getElementById('approvalOverlay').classList.add('show');
+async function approvePayment() {
+  if (!state.escrowId) return;
+  try {
+    await apiJson('/api/approve-payment', {
+      method: 'POST',
+      body: JSON.stringify({ escrow_id: state.escrowId, session_id: state.sessionId || 'manual' })
+    });
+  } catch (error) {
+    addLog({ step: 'error', action: 'Approval failed', detail: error.message, ts: new Date().toISOString() });
+  }
 }
 
-function approvePayment() {
-  document.getElementById('approvalOverlay').classList.remove('show');
-  state.spent = 28000;
-  state.walletBalance = 50000 - 28000;
-  document.getElementById('walletBalance').textContent = formatINR(state.walletBalance);
-  document.getElementById('spentAmt').textContent = formatINR(state.spent);
-  document.getElementById('spendBar').style.width = ((state.spent / 30000) * 100) + '%';
-  document.getElementById('approvalStatus').textContent = 'Approved';
-  document.getElementById('approvalStatus').className = 'status-badge s-approved';
-  document.getElementById('escrowStatus').textContent = 'Locked';
-  addLog({ icon:'✅', type:'ok', action:'Payment approved by human', detail:'₹28,000 approved — awaiting shipment proof', time:'—' });
-  addAudit('Payment approved', 'Human approved ₹28,000 for TamilTex Mills', 'var(--green)', {cls:'s-approved', text:'Approved'});
+async function rejectPayment() {
+  if (!state.escrowId) return;
+  try {
+    await apiJson('/api/reject-payment', {
+      method: 'POST',
+      body: JSON.stringify({ escrow_id: state.escrowId, session_id: state.sessionId || 'manual' })
+    });
+  } catch (error) {
+    addLog({ step: 'error', action: 'Rejection failed', detail: error.message, ts: new Date().toISOString() });
+  }
 }
 
-function rejectPayment() {
-  document.getElementById('approvalOverlay').classList.remove('show');
-  document.getElementById('approvalStatus').textContent = 'Rejected';
-  document.getElementById('approvalStatus').className = 'status-badge s-blocked';
-  document.getElementById('escrowStatus').textContent = 'Blocked';
-  document.getElementById('escrowStatus').className = 'status-badge s-blocked';
-  addLog({ icon:'❌', type:'warn', action:'Payment rejected by human', detail:'Escrow refunded — select alternative supplier', time:'—' });
-  addAudit('Payment rejected', 'Transaction blocked by approver', 'var(--coral)', {cls:'s-blocked', text:'Blocked'});
+async function releaseEscrow() {
+  if (!state.escrowId) {
+    addLog({ step: 'warn', action: 'No escrow selected', detail: 'Start an agent run first', ts: new Date().toISOString() });
+    return;
+  }
+  try {
+    await apiJson('/api/release-escrow', {
+      method: 'POST',
+      body: JSON.stringify({ escrow_id: state.escrowId, session_id: state.sessionId || 'manual' })
+    });
+    addLog({ step: 'ok', action: 'Escrow released', detail: 'Funds released to supplier', ts: new Date().toISOString() });
+  } catch (error) {
+    addLog({ step: 'error', action: 'Release failed', detail: error.message, ts: new Date().toISOString() });
+  }
 }
 
-function releaseEscrow() {
-  document.getElementById('escrowStatus').textContent = 'Released';
-  document.getElementById('escrowStatus').className = 'status-badge s-released';
-  addAudit('Escrow released', '₹28,000 released to TamilTex Mills', 'var(--accent)', {cls:'s-released', text:'Released'});
-  addLog({ icon:'🎉', type:'ok', action:'Escrow released', detail:'Payment sent to TamilTex Mills — procurement complete', time:'—' });
+async function refundEscrow() {
+  if (!state.escrowId) {
+    addLog({ step: 'warn', action: 'No escrow selected', detail: 'Start an agent run first', ts: new Date().toISOString() });
+    return;
+  }
+  try {
+    await apiJson('/api/refund-escrow', {
+      method: 'POST',
+      body: JSON.stringify({ escrow_id: state.escrowId, session_id: state.sessionId || 'manual' })
+    });
+    addLog({ step: 'escrow', action: 'Escrow refunded', detail: 'Funds returned to wallet', ts: new Date().toISOString() });
+  } catch (error) {
+    addLog({ step: 'error', action: 'Refund failed', detail: error.message, ts: new Date().toISOString() });
+  }
 }
 
-function refundEscrow() {
-  document.getElementById('escrowStatus').textContent = 'Refunded';
-  document.getElementById('escrowStatus').className = 'status-badge s-refunded';
-  state.walletBalance = 50000;
-  document.getElementById('walletBalance').textContent = formatINR(state.walletBalance);
-  addAudit('Escrow refunded', '₹28,000 returned to wallet', 'var(--accent2)', {cls:'s-refunded', text:'Refunded'});
-  addLog({ icon:'↩', type:'escrow', action:'Escrow refunded', detail:'₹28,000 returned to Locus wallet', time:'—' });
+async function sendQuote(id) {
+  const supplier = state.suppliers.find(item => item.id === id);
+  if (!supplier) return;
+
+  try {
+    await apiJson('/api/send-email', {
+      method: 'POST',
+      body: JSON.stringify({
+        supplier_id: id,
+        material: state.material,
+        quantity: String(state.quantityKg),
+        max_budget: String(state.maxBudgetPerKg),
+        delivery_days: state.deliveryDays,
+        session_id: state.sessionId || 'manual'
+      })
+    });
+    addLog({ step: 'email', action: `Quote sent to ${supplier.name}`, detail: supplier.email, ts: new Date().toISOString() });
+  } catch (error) {
+    addLog({ step: 'error', action: 'Quote email failed', detail: error.message, ts: new Date().toISOString() });
+  }
 }
 
-function selectSupplier(id) {
-  const s = SUPPLIERS.find(x => x.id === id);
-  if (!s) return;
-  addLog({ icon:'🏆', type:'ok', action:`Selected: ${s.name}`, detail:`₹${s.price}/kg · ${s.delivery} days · Score ${s.score}`, time:'—' });
-  addAudit('Supplier selected manually', `${s.name} — ₹${s.price}/kg`, 'var(--accent)', null);
-}
+async function selectSupplier(id) {
+  const supplier = state.suppliers.find(item => item.id === id);
+  if (!supplier) return;
 
-function sendQuote(id) {
-  const s = SUPPLIERS.find(x => x.id === id);
-  addLog({ icon:'📧', type:'email', action:`Quote sent to ${s.name}`, detail:`Email: ${s.email}`, time:'—' });
+  const amount = Number(supplier.price) * Number(state.quantityKg || 1000);
+  try {
+    const escrow = await apiJson('/api/create-escrow', {
+      method: 'POST',
+      body: JSON.stringify({
+        supplier: supplier.name,
+        amount,
+        session_id: state.sessionId || 'manual',
+        category: String(supplier.category || 'general').toLowerCase()
+      })
+    });
+    setEscrowUI(escrow);
+    addLog({ step: 'select', action: `Supplier selected: ${supplier.name}`, detail: `Escrow amount ${formatINR(amount)}`, ts: new Date().toISOString() });
+    if (escrow.requires_approval) {
+      showApproval({
+        escrow_id: escrow.id,
+        supplier: escrow.supplier,
+        amount: escrow.amount,
+        threshold: state.approvalThreshold
+      });
+    }
+  } catch (error) {
+    addLog({ step: 'error', action: 'Escrow creation failed', detail: error.message, ts: new Date().toISOString() });
+  }
 }
 
 function viewSupplier(id) {
@@ -891,11 +1121,39 @@ function viewSupplier(id) {
 }
 
 function uploadProof() {
-  addLog({ icon:'📦', type:'ok', action:'Shipment proof uploaded', detail:'PDF verified — ready to release escrow', time:'—' });
-  addAudit('Proof uploaded', 'Shipment document verified', 'var(--accent)', null);
+  addLog({ step: 'ok', action: 'Shipment proof uploaded', detail: 'Proof marked for escrow release', ts: new Date().toISOString() });
+  addAudit('Proof uploaded', 'Shipment document attached', 'var(--accent)', null);
 }
 
-function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+async function bootstrapDashboard() {
+  try {
+    const wallet = await apiJson('/api/wallet-state');
+    updateWallet(wallet);
+  } catch {
+    // Keep default wallet values when backend is unavailable.
+  }
+
+  try {
+    const controls = await apiJson('/api/spending-controls');
+    state.monthlyLimit = Number(controls.monthly_spend_limit || state.monthlyLimit);
+    state.approvalThreshold = Number(controls.auto_approve_threshold || state.approvalThreshold);
+  } catch {
+    // Keep defaults when controls endpoint is unavailable.
+  }
+
+  ensureSocket().catch(() => {
+    addLog({ step: 'warn', action: 'WebSocket unavailable', detail: 'Start backend at http://localhost:8000', ts: new Date().toISOString() });
+  });
+}
+
+window.addEventListener('beforeunload', () => {
+  if (state.pingInterval) clearInterval(state.pingInterval);
+  if (state.socket && state.socket.readyState === WebSocket.OPEN) {
+    state.socket.close();
+  }
+});
+
+bootstrapDashboard();
 </script>
 </body>
 </html>
