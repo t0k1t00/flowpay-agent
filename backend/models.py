@@ -108,3 +108,30 @@ class SpendingControlsUpdate(BaseModel):
     monthly_spend_limit: Optional[float] = None
     daily_spend_limit: Optional[float] = None
     allowed_categories: Optional[List[str]] = None
+
+
+class VirtualCardCreateRequest(BaseModel):
+    spend_limit: float
+    session_id: str = "manual"
+    alias: Optional[str] = None
+    merchant_lock: str = "GSTN"
+    purpose: str = "gst_payment"
+    currency: str = "INR"
+
+
+class VirtualCardDebitRequest(BaseModel):
+    card_id: str
+    amount: float
+    session_id: str = "manual"
+    reason: str = "portal_payment"
+
+
+class GSTAutomationRequest(BaseModel):
+    gstin: str
+    filing_period: str
+    tax_amount: float
+    session_id: str = "manual"
+    card_id: Optional[str] = None
+    portal: str = "GSTN"
+    notes: Optional[str] = None
+    auto_pay: bool = True
