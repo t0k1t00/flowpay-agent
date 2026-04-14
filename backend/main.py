@@ -17,12 +17,16 @@ from models import (
     ApprovalRequest,
     EmailRequest,
     EscrowRequest,
+    GSTAutomationRequest,
     SourcingRequest,
     SpendingControlsResponse,
     SpendingControlsUpdate,
+    VirtualCardCreateRequest,
+    VirtualCardDebitRequest,
     WalletTopUpRequest,
 )
 from services.audit_service import get_audit_trail, log_action
+from services.browser_use_service import list_gst_automation_runs, run_gst_automation
 from services.email_service import send_quote_emails
 from services.escrow_service import (
     approve_escrow,
@@ -32,6 +36,13 @@ from services.escrow_service import (
     refund_escrow,
     reject_escrow,
     release_escrow,
+)
+from services.laso_service import (
+    create_virtual_card,
+    debit_virtual_card,
+    get_virtual_card,
+    list_virtual_card_transactions,
+    list_virtual_cards,
 )
 from services.orchestrator import ProcurementOrchestrator
 from services.parser import parse_request
@@ -325,6 +336,97 @@ async def api_update_spending_controls(payload: SpendingControlsUpdate):
         return update_spending_controls(payload.model_dump(exclude_none=True))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# ── Browser Use + Laso Integrations ───────────────────────
+@app.post("/api/virtual-cards")
+async def api_create_virtual_card(payload: VirtualCardCreateRequest):
+    try:
+        card = create_virtual_card(
+            spend_limit=payload.spend_limit,
+            session_id=payload.session_id,
+            alias=payload.alias,
+            merchant_lock=payload.merchant_lock,
+            purpose=payload.purpose,
+            currency=payload.currency,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    log_action("virtual_card_provisioned", card["id"], payload.spend_limit, "active", payload.session_id)
+    await broadcast_event({"type": "virtual_card", "session_id": payload.session_id, "data": card})
+    await emit_wallet_state(payload.session_id)
+    return card
+
+
+@app.get("/api/virtual-cards")
+async def api_list_virtual_cards(status: Optional[str] = None):
+    return list_virtual_cards(status=status)
+
+
+@app.get("/api/virtual-cards/{card_id}")
+async def api_get_virtual_card(card_id: str):
+    card = get_virtual_card(card_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Virtual card not found")
+    return card
+
+
+@app.post("/api/virtual-cards/debit")
+async def api_debit_virtual_card(payload: VirtualCardDebitRequest):
+    try:
+        txn = debit_virtual_card(
+            card_id=payload.card_id,
+            amount=payload.amount,
+            session_id=payload.session_id,
+            reason=payload.reason,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    log_action("virtual_card_debit", payload.card_id, payload.amount, "charged", payload.session_id)
+    await broadcast_event({"type": "virtual_card_txn", "session_id": payload.session_id, "data": txn})
+    await emit_wallet_state(payload.session_id)
+    return txn
+
+
+@app.get("/api/virtual-cards/{card_id}/transactions")
+async def api_virtual_card_transactions(card_id: str, limit: int = 100):
+    card = get_virtual_card(card_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Virtual card not found")
+    return list_virtual_card_transactions(card_id=card_id, limit=limit)
+
+
+@app.post("/api/gstn/automate")
+async def api_gstn_automate(payload: GSTAutomationRequest):
+    try:
+        result = run_gst_automation(
+            gstin=payload.gstin,
+            filing_period=payload.filing_period,
+            tax_amount=payload.tax_amount,
+            session_id=payload.session_id,
+            card_id=payload.card_id,
+            portal=payload.portal,
+            notes=payload.notes,
+            auto_pay=payload.auto_pay,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    log_action("gstn_automation_run", payload.gstin, payload.tax_amount, result["status"], payload.session_id)
+    await broadcast_event({"type": "gstn_automation", "session_id": payload.session_id, "data": result})
+    await emit_wallet_state(payload.session_id)
+    return result
+
+
+@app.get("/api/gstn/runs")
+async def api_list_gstn_runs(limit: int = 50):
+    return list_gst_automation_runs(limit=limit)
 
 
 # ── Audit Trail ────────────────────────────────────────────
