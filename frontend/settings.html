@@ -191,16 +191,70 @@
       </div>
     </div>
 
+    <div class="setting-section">
+      <div class="ss-header">
+        <div class="ss-title">GST Compliance Automation</div>
+        <div class="ss-sub">Browser Use + Laso workflow for GSTN filing and payment</div>
+      </div>
+      <div class="ss-body">
+        <div class="setting-row">
+          <div><div class="setting-label">GSTIN</div><div class="setting-desc">Vendor GST number for filing</div></div>
+          <input class="setting-input" id="gstinInput" value="33ABCDE1234F1Z5" type="text"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Filing period</div><div class="setting-desc">Format: YYYY-MM</div></div>
+          <input class="setting-input" id="filingPeriodInput" value="2026-04" type="text"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Tax amount</div><div class="setting-desc">INR amount to pay on GSTN portal</div></div>
+          <input class="setting-input" id="taxAmountInput" value="1200" type="number"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Portal</div><div class="setting-desc">Portal lock for virtual card payments</div></div>
+          <input class="setting-input" id="portalInput" value="GSTN" type="text"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Actions</div><div class="setting-desc">Provision card first, then execute automation</div></div>
+          <div class="api-key-row">
+            <button class="reveal-btn" onclick="provisionCard()">Provision Card</button>
+            <button class="reveal-btn" onclick="runGstAutomation()">Run GST Flow</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Latest Output</div><div class="setting-desc">Last card and GST automation result snapshot</div></div>
+          <textarea class="setting-input" id="integrationOutput" style="width:340px;height:90px;resize:vertical;">No integration action executed yet.</textarea>
+        </div>
+      </div>
+    </div>
+
     <button class="save-btn" onclick="save()">Save Settings</button>
   </div>
 </div>
 
 <script>
 const API_BASE = localStorage.getItem('paygenticApiBase') || 'http://localhost:8000';
+let activeCardId = null;
 
 function toggleKey(id) {
   const inp = document.getElementById(id);
   inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+function setIntegrationOutput(message) {
+  document.getElementById('integrationOutput').value = message;
+}
+
+async function postJson(path, payload) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || `Request failed (${response.status})`);
+  }
+  return data;
 }
 
 async function loadSpendingControls() {
@@ -257,7 +311,75 @@ async function save() {
   setTimeout(() => { btn.textContent = 'Save Settings'; btn.style.background = ''; }, 2000);
 }
 
+async function loadLatestCard() {
+  try {
+    const response = await fetch(`${API_BASE}/api/virtual-cards`);
+    if (!response.ok) return;
+    const cards = await response.json();
+    if (Array.isArray(cards) && cards.length) {
+      activeCardId = cards[0].id;
+    }
+  } catch {
+    // Ignore bootstrap failures to keep settings page usable.
+  }
+}
+
+async function provisionCard() {
+  const taxAmount = Number(document.getElementById('taxAmountInput').value || 0);
+  const portal = document.getElementById('portalInput').value || 'GSTN';
+  const spendLimit = Math.max(1000, Math.ceil(Math.max(taxAmount, 1) * 1.2));
+
+  try {
+    setIntegrationOutput('Provisioning Laso virtual card...');
+    const card = await postJson('/api/virtual-cards', {
+      spend_limit: spendLimit,
+      alias: 'Settings GST Card',
+      merchant_lock: portal,
+      purpose: 'gst_payment',
+      session_id: 'settings_ui'
+    });
+    activeCardId = card.id;
+    setIntegrationOutput(`Virtual card ready\ncard_id=${card.id}\nlimit=${card.spend_limit}\navailable=${card.available_limit}`);
+  } catch (error) {
+    setIntegrationOutput(`Card provisioning failed: ${error.message}`);
+  }
+}
+
+async function runGstAutomation() {
+  const gstin = document.getElementById('gstinInput').value.trim();
+  const filingPeriod = document.getElementById('filingPeriodInput').value.trim();
+  const taxAmount = Number(document.getElementById('taxAmountInput').value || 0);
+  const portal = document.getElementById('portalInput').value.trim() || 'GSTN';
+
+  if (!gstin || !filingPeriod || taxAmount <= 0) {
+    setIntegrationOutput('Provide GSTIN, filing period, and positive tax amount.');
+    return;
+  }
+
+  try {
+    if (!activeCardId) {
+      await provisionCard();
+    }
+    setIntegrationOutput('Running Browser Use GST automation...');
+    const result = await postJson('/api/gstn/automate', {
+      gstin,
+      filing_period: filingPeriod,
+      tax_amount: taxAmount,
+      portal,
+      card_id: activeCardId,
+      session_id: 'settings_ui',
+      auto_pay: true
+    });
+    setIntegrationOutput(
+      `GST automation completed\nrun_id=${result.run_id}\nreceipt=${result.receipt_ref}\ncard=${result.card_id}\nstatus=${result.status}`
+    );
+  } catch (error) {
+    setIntegrationOutput(`GST automation failed: ${error.message}`);
+  }
+}
+
 loadSpendingControls();
+loadLatestCard();
 </script>
 </body>
 </html>
