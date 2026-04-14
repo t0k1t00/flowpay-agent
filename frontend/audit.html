@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Audit Trail — PayGentic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root{--bg:#0a0b0f;--bg2:#111318;--bg3:#181b22;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--text:#e8eaf0;--muted:#7a8099;--accent:#6ee7b7;--accent2:#38bdf8;--amber:#fbbf24;--coral:#f87171;--purple:#a78bfa;--green:#4ade80;--font-head:'Syne',sans-serif;--font-body:'Manrope',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:12px;--radius-sm:8px;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:14px;line-height:1.6;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:56px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+  .logo{font-family:var(--font-head);font-size:18px;font-weight:800;letter-spacing:-0.5px;color:var(--accent);display:flex;align-items:center;gap:8px;}
+  .logo-dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}
+  .nav-links{display:flex;gap:4px;}
+  .nav-link{font-family:var(--font-head);font-size:12px;font-weight:600;text-decoration:none;color:var(--muted);padding:6px 14px;border-radius:var(--radius-sm);transition:all 0.15s;letter-spacing:0.3px;}
+  .nav-link:hover{color:var(--text);background:var(--bg3);}
+  .nav-link.active{color:var(--accent);background:rgba(110,231,183,0.08);}
+  .status-pill{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;color:var(--accent);background:rgba(110,231,183,0.08);border:1px solid rgba(110,231,183,0.2);border-radius:20px;padding:4px 12px;}
+  .status-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.5s infinite;}
+
+  .page-content{max-width:1100px;margin:0 auto;padding:32px 24px;}
+  .page-header{margin-bottom:28px;display:flex;justify-content:space-between;align-items:flex-end;}
+  .page-title{font-family:var(--font-head);font-size:24px;font-weight:800;color:var(--text);margin-bottom:6px;}
+  .page-sub{font-size:13px;color:var(--muted);}
+  .export-btn{font-family:var(--font-head);font-size:11px;font-weight:700;padding:9px 18px;border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--border2);color:var(--muted);cursor:pointer;transition:all 0.15s;}
+  .export-btn:hover{color:var(--text);border-color:var(--border2);}
+
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;}
+  .stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;}
+  .stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;}
+  .stat-value{font-family:var(--font-head);font-size:22px;font-weight:800;color:var(--text);}
+  .stat-value.accent{color:var(--accent);}
+  .stat-value.amber{color:var(--amber);}
+  .stat-value.coral{color:var(--coral);}
+  .stat-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+
+  .audit-table{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  .audit-header{display:grid;grid-template-columns:40px 1fr 1fr 1fr 1fr 1fr;padding:12px 20px;background:var(--bg3);border-bottom:1px solid var(--border);gap:12px;}
+  .th{font-family:var(--font-head);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+  .audit-row{display:grid;grid-template-columns:40px 1fr 1fr 1fr 1fr 1fr;padding:14px 20px;border-bottom:1px solid var(--border);align-items:center;gap:12px;animation:fadeIn 0.3s ease;}
+  .audit-row:last-child{border-bottom:none;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .step-num{font-family:var(--font-mono);font-size:11px;color:var(--muted);}
+  .action-cell{display:flex;align-items:center;gap:8px;}
+  .action-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+  .action-name{font-size:13px;font-weight:600;color:var(--text);}
+  .action-detail{font-size:11px;color:var(--muted);margin-top:1px;}
+  .badge{font-family:var(--font-mono);font-size:10px;font-weight:500;padding:3px 9px;border-radius:4px;}
+  .b-search{background:rgba(56,189,248,0.1);color:var(--accent2);border:1px solid rgba(56,189,248,0.2);}
+  .b-enrich{background:rgba(167,139,250,0.1);color:var(--purple);border:1px solid rgba(167,139,250,0.2);}
+  .b-email{background:rgba(251,191,36,0.1);color:var(--amber);border:1px solid rgba(251,191,36,0.2);}
+  .b-escrow{background:rgba(110,231,183,0.1);color:var(--accent);border:1px solid rgba(110,231,183,0.2);}
+  .b-approval{background:rgba(248,113,113,0.1);color:var(--coral);border:1px solid rgba(248,113,113,0.2);}
+  .b-release{background:rgba(74,222,128,0.1);color:var(--green);border:1px solid rgba(74,222,128,0.2);}
+  .mono{font-family:var(--font-mono);font-size:12px;}
+  .ts{font-family:var(--font-mono);font-size:11px;color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo"><div class="logo-dot"></div>PayGentic</div>
+  <nav class="nav-links">
+    <a href="index.html" class="nav-link">Dashboard</a>
+    <a href="suppliers.html" class="nav-link">Suppliers</a>
+    <a href="audit.html" class="nav-link active">Audit Trail</a>
+    <a href="approvals.html" class="nav-link">Approvals</a>
+    <a href="settings.html" class="nav-link">Settings</a>
+  </nav>
+  <div class="status-pill"><div class="status-dot"></div>Agent Active</div>
+</div>
+
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Audit Trail</div>
+      <div class="page-sub">Complete tamper-proof log of all agent actions and transactions</div>
+    </div>
+    <button class="export-btn" onclick="exportCSV()">↓ Export CSV</button>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Actions</div>
+      <div class="stat-value accent">12</div>
+      <div class="stat-sub">This session</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Amount Processed</div>
+      <div class="stat-value amber">₹28,000</div>
+      <div class="stat-sub">Across 1 supplier</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Emails Sent</div>
+      <div class="stat-value">8</div>
+      <div class="stat-sub">Quote requests</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Approval Events</div>
+      <div class="stat-value coral">1</div>
+      <div class="stat-sub">Human interventions</div>
+    </div>
+  </div>
+
+  <div class="audit-table">
+    <div class="audit-header">
+      <div class="th">#</div>
+      <div class="th">Action</div>
+      <div class="th">Type</div>
+      <div class="th">Supplier</div>
+      <div class="th">Amount</div>
+      <div class="th">Timestamp</div>
+    </div>
+    <div id="auditRows"></div>
+  </div>
+</div>
+
+<script>
+const AUDIT = [
+  {n:1,action:'Agent initialized',detail:'Request parsed: 1000kg cotton yarn, ₹300/kg max',type:'search',typeCls:'b-search',supplier:'—',amount:'—',time:'14:02:11'},
+  {n:2,action:'Supplier search',detail:'Exa API query executed, 12 results',type:'search',typeCls:'b-search',supplier:'—',amount:'—',time:'14:02:13'},
+  {n:3,action:'Web scraping',detail:'Firecrawl scraped 12 supplier pages',type:'search',typeCls:'b-search',supplier:'—',amount:'—',time:'14:02:16'},
+  {n:4,action:'Data enrichment',detail:'GSTIN validation, Apollo company scores',type:'enrich',typeCls:'b-enrich',supplier:'8 suppliers',amount:'—',time:'14:02:21'},
+  {n:5,action:'Supplier ranking',detail:'Ranked by price × delivery × verification',type:'enrich',typeCls:'b-enrich',supplier:'8 suppliers',amount:'—',time:'14:02:24'},
+  {n:6,action:'Quote email sent',detail:'To: sales@tamiltex.com',type:'email',typeCls:'b-email',supplier:'TamilTex Mills',amount:'—',time:'14:02:26'},
+  {n:7,action:'Quote emails sent (7)',detail:'Bulk quote requests dispatched via Resend',type:'email',typeCls:'b-email',supplier:'7 suppliers',amount:'—',time:'14:02:27'},
+  {n:8,action:'Supplier selected',detail:'TamilTex Mills — Score 92, ₹280/kg',type:'escrow',typeCls:'b-escrow',supplier:'TamilTex Mills',amount:'₹280/kg',time:'14:02:30'},
+  {n:9,action:'Escrow created',detail:'Locus virtual escrow initialized',type:'escrow',typeCls:'b-escrow',supplier:'TamilTex Mills',amount:'₹28,000',time:'14:02:32'},
+  {n:10,action:'Approval requested',detail:'Amount ₹28,000 exceeds ₹2,000 threshold',type:'approval',typeCls:'b-approval',supplier:'TamilTex Mills',amount:'₹28,000',time:'14:02:33'},
+  {n:11,action:'Payment approved',detail:'Human approver authorized transaction',type:'approval',typeCls:'b-approval',supplier:'TamilTex Mills',amount:'₹28,000',time:'14:03:01'},
+  {n:12,action:'Escrow locked',detail:'Funds locked pending shipment proof',type:'escrow',typeCls:'b-escrow',supplier:'TamilTex Mills',amount:'₹28,000',time:'14:03:02'},
+];
+
+const icons = {search:'🔍',enrich:'✨',email:'📧',escrow:'🔒',approval:'⚠',release:'✅'};
+const iconBg = {search:'rgba(56,189,248,0.12)',enrich:'rgba(167,139,250,0.12)',email:'rgba(251,191,36,0.12)',escrow:'rgba(110,231,183,0.12)',approval:'rgba(248,113,113,0.12)',release:'rgba(74,222,128,0.12)'};
+
+document.getElementById('auditRows').innerHTML = AUDIT.map(a => `
+  <div class="audit-row">
+    <div class="step-num">${String(a.n).padStart(2,'0')}</div>
+    <div class="action-cell">
+      <div class="action-icon" style="background:${iconBg[a.type]||iconBg.search}">${icons[a.type]||'•'}</div>
+      <div>
+        <div class="action-name">${a.action}</div>
+        <div class="action-detail">${a.detail}</div>
+      </div>
+    </div>
+    <div><span class="badge ${a.typeCls}">${a.type}</span></div>
+    <div class="mono" style="font-size:12px;">${a.supplier}</div>
+    <div class="mono" style="color:${a.amount==='—'?'var(--muted)':'var(--amber)'};">${a.amount}</div>
+    <div class="ts">${a.time}</div>
+  </div>
+`).join('');
+
+function exportCSV() {
+  const rows = ['#,Action,Type,Supplier,Amount,Timestamp', ...AUDIT.map(a=>`${a.n},"${a.action}",${a.type},${a.supplier},${a.amount},${a.time}`)];
+  const blob = new Blob([rows.join('\n')], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'paygentic_audit.csv';
+  a.click();
+}
+</script>
+</body>
+</html>

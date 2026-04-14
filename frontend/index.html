@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PayGentic — Autonomous B2B Sourcing Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0b0f;
+    --bg2: #111318;
+    --bg3: #181b22;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #e8eaf0;
+    --muted: #7a8099;
+    --accent: #6ee7b7;
+    --accent2: #38bdf8;
+    --amber: #fbbf24;
+    --coral: #f87171;
+    --purple: #a78bfa;
+    --green: #4ade80;
+    --font-head: 'Syne', sans-serif;
+    --font-body: 'Manrope', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Top Bar ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    height: 56px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-family: var(--font-head);
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.7)} }
+  .nav-links { display: flex; gap: 4px; }
+  .nav-link {
+    font-family: var(--font-head);
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--muted);
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    transition: all 0.15s;
+    letter-spacing: 0.3px;
+  }
+  .nav-link:hover { color: var(--text); background: var(--bg3); }
+  .nav-link.active { color: var(--accent); background: rgba(110,231,183,0.08); }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent);
+    background: rgba(110,231,183,0.08);
+    border: 1px solid rgba(110,231,183,0.2);
+    border-radius: 20px;
+    padding: 4px 12px;
+  }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.5s infinite; }
+
+  /* ── Main Layout ── */
+  .main { display: grid; grid-template-columns: 300px 1fr 300px; height: calc(100vh - 56px); overflow: hidden; }
+
+  /* ── Panels ── */
+  .panel { display: flex; flex-direction: column; border-right: 1px solid var(--border); overflow: hidden; }
+  .panel:last-child { border-right: none; border-left: 1px solid var(--border); }
+  .panel-header {
+    padding: 16px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .panel-title {
+    font-family: var(--font-head);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .panel-subtitle { font-size: 12px; color: var(--muted); }
+  .panel-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .panel-body::-webkit-scrollbar { width: 4px; }
+  .panel-body::-webkit-scrollbar-track { background: transparent; }
+  .panel-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* ── Request Input ── */
+  .request-box {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px;
+    flex-shrink: 0;
+  }
+  .request-input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 13px;
+    padding: 10px 14px;
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s;
+    min-height: 72px;
+  }
+  .request-input:focus { border-color: rgba(110,231,183,0.4); }
+  .request-input::placeholder { color: var(--muted); }
+  .request-btn {
+    margin-top: 10px;
+    width: 100%;
+    background: var(--accent);
+    color: #0a0b0f;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-head);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .request-btn:hover { background: #4ade9b; transform: translateY(-1px); }
+  .request-btn:active { transform: translateY(0); }
+  .request-btn:disabled { background: var(--border2); color: var(--muted); cursor: not-allowed; transform: none; }
+
+  /* ── Agent Log Entries ── */
+  .log-entry {
+    display: flex;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn 0.3s ease;
+  }
+  .log-entry:last-child { border-bottom: none; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .log-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .log-icon.search { background: rgba(56,189,248,0.12); }
+  .log-icon.enrich { background: rgba(167,139,250,0.12); }
+  .log-icon.email { background: rgba(251,191,36,0.12); }
+  .log-icon.escrow { background: rgba(110,231,183,0.12); }
+  .log-icon.warn { background: rgba(248,113,113,0.12); }
+  .log-icon.ok { background: rgba(74,222,128,0.12); }
+  .log-text { flex: 1; }
+  .log-action { font-weight: 600; font-size: 12px; color: var(--text); }
+  .log-detail { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .log-time { font-family: var(--font-mono); font-size: 10px; color: var(--muted); flex-shrink: 0; margin-top: 4px; }
+
+  .step-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: rgba(110,231,183,0.06);
+    border: 1px solid rgba(110,231,183,0.15);
+    border-radius: var(--radius-sm);
+    margin-bottom: 14px;
+  }
+  .step-spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(110,231,183,0.2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .step-text { font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
+
+  /* ── Supplier Cards ── */
+  .center-panel { display: flex; flex-direction: column; background: var(--bg); }
+  .center-panel .panel-header { background: var(--bg2); }
+  .supplier-grid { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; flex: 1; }
+  .supplier-grid::-webkit-scrollbar { width: 4px; }
+  .supplier-grid::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .supplier-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    transition: border-color 0.2s, transform 0.15s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+  .supplier-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+  .supplier-card.recommended { border-color: rgba(110,231,183,0.3); }
+  .supplier-card.recommended::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+
+  .card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+  .card-company { font-family: var(--font-head); font-size: 15px; font-weight: 700; color: var(--text); }
+  .card-location { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .score-badge {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--accent);
+    background: rgba(110,231,183,0.08);
+    border: 1px solid rgba(110,231,183,0.2);
+    border-radius: 8px;
+    padding: 4px 10px;
+    line-height: 1;
+  }
+
+  .card-metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .metric { background: var(--bg3); border-radius: var(--radius-sm); padding: 8px 10px; }
+  .metric-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+  .metric-value { font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--text); }
+
+  .card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.3px;
+  }
+  .tag-verified { background: rgba(74,222,128,0.1); color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
+  .tag-recommended { background: rgba(110,231,183,0.1); color: var(--accent); border: 1px solid rgba(110,231,183,0.25); }
+  .tag-gstin { background: rgba(56,189,248,0.1); color: var(--accent2); border: 1px solid rgba(56,189,248,0.2); font-family: var(--font-mono); font-size: 9px; }
+
+  .card-actions { display: flex; gap: 8px; }
+  .btn {
+    flex: 1;
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-head);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .btn-ghost { background: var(--bg3); color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--border2); }
+  .btn-outline { background: transparent; color: var(--accent2); border: 1px solid rgba(56,189,248,0.3); }
+  .btn-outline:hover { background: rgba(56,189,248,0.08); }
+  .btn-primary { background: var(--accent); color: #0a0b0f; }
+  .btn-primary:hover { background: #4ade9b; }
+
+  /* ── Audit / Financial Panel ── */
+  .wallet-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .wallet-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .wallet-balance { font-family: var(--font-head); font-size: 26px; font-weight: 800; color: var(--accent); line-height: 1; }
+  .wallet-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  .spend-bar-wrap { margin: 14px 0; }
+  .spend-bar-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .spend-bar-track { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+  .spend-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent2), var(--accent)); transition: width 0.6s ease; }
+
+  .escrow-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .escrow-row:last-child { border-bottom: none; }
+  .escrow-key { color: var(--muted); }
+  .escrow-val { font-family: var(--font-mono); font-weight: 500; }
+
+  .status-badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    padding: 3px 9px;
+    border-radius: 4px;
+    letter-spacing: 0.3px;
+  }
+  .s-pending { background: rgba(251,191,36,0.12); color: var(--amber); border: 1px solid rgba(251,191,36,0.25); }
+  .s-approved { background: rgba(74,222,128,0.1); color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
+  .s-locked { background: rgba(167,139,250,0.1); color: var(--purple); border: 1px solid rgba(167,139,250,0.2); }
+  .s-blocked { background: rgba(248,113,113,0.1); color: var(--coral); border: 1px solid rgba(248,113,113,0.2); }
+  .s-released { background: rgba(110,231,183,0.1); color: var(--accent); border: 1px solid rgba(110,231,183,0.2); }
+  .s-refunded { background: rgba(56,189,248,0.1); color: var(--accent2); border: 1px solid rgba(56,189,248,0.2); }
+
+  .audit-timeline { margin-top: 14px; }
+  .audit-item {
+    display: flex;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn 0.3s ease;
+  }
+  .audit-item:last-child { border-bottom: none; }
+  .audit-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+  .audit-info { flex: 1; }
+  .audit-action { font-size: 12px; font-weight: 600; color: var(--text); }
+  .audit-detail { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .audit-time { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* ── Approval Modal ── */
+  .approval-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .approval-overlay.show { display: flex; }
+  .approval-modal {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 16px;
+    padding: 28px;
+    width: 440px;
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+  .approval-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .approval-icon {
+    width: 42px; height: 42px;
+    background: rgba(251,191,36,0.12);
+    border: 1px solid rgba(251,191,36,0.25);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .approval-title { font-family: var(--font-head); font-size: 17px; font-weight: 700; }
+  .approval-sub { font-size: 12px; color: var(--muted); }
+  .approval-details { background: var(--bg3); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 20px; }
+  .approval-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; }
+  .approval-row:not(:last-child) { border-bottom: 1px solid var(--border); }
+  .approval-row span:first-child { color: var(--muted); }
+  .approval-row span:last-child { font-family: var(--font-mono); font-weight: 500; }
+  .approval-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .approval-reject { background: rgba(248,113,113,0.1); color: var(--coral); border: 1px solid rgba(248,113,113,0.25); padding: 11px; border-radius: var(--radius-sm); cursor: pointer; font-family: var(--font-head); font-size: 13px; font-weight: 700; transition: all 0.15s; }
+  .approval-reject:hover { background: rgba(248,113,113,0.2); }
+  .approval-approve { background: var(--accent); color: #0a0b0f; border: none; padding: 11px; border-radius: var(--radius-sm); cursor: pointer; font-family: var(--font-head); font-size: 13px; font-weight: 700; transition: all 0.15s; }
+  .approval-approve:hover { background: #4ade9b; }
+
+  /* ── Proof Upload ── */
+  .proof-section {
+    background: var(--bg3);
+    border: 1px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 14px;
+    text-align: center;
+    margin-top: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .proof-section:hover { border-color: var(--accent); background: rgba(110,231,183,0.04); }
+  .proof-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* ── Empty state ── */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 12px;
+    color: var(--muted);
+  }
+  .empty-icon { font-size: 32px; opacity: 0.4; }
+  .empty-text { font-size: 13px; text-align: center; }
+
+  /* Scrollbar for center */
+  .supplier-grid::-webkit-scrollbar { width: 4px; }
+  .supplier-grid::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .section-label {
+    font-family: var(--font-head);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 14px 0 8px;
+  }
+  .section-label:first-child { margin-top: 0; }
+
+  .escrow-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .btn-release { background: rgba(110,231,183,0.12); color: var(--accent); border: 1px solid rgba(110,231,183,0.25); padding: 9px; border-radius: var(--radius-sm); cursor: pointer; font-family: var(--font-head); font-size: 11px; font-weight: 700; transition: all 0.15s; }
+  .btn-release:hover { background: rgba(110,231,183,0.2); }
+  .btn-refund { background: rgba(56,189,248,0.1); color: var(--accent2); border: 1px solid rgba(56,189,248,0.2); padding: 9px; border-radius: var(--radius-sm); cursor: pointer; font-family: var(--font-head); font-size: 11px; font-weight: 700; transition: all 0.15s; }
+  .btn-refund:hover { background: rgba(56,189,248,0.18); }
+
+  .highlight-row { color: var(--amber) !important; }
+  .main {
+    min-height: 0;
+  }
+
+  .panel,
+  .center-panel,
+  .panel-body,
+  .supplier-grid,
+  #auditPanel {
+    min-height: 0;
+  }
+
+  .panel {
+    overflow: hidden;
+  }
+
+  .panel-body,
+  .supplier-grid,
+  .audit-timeline {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.18) transparent;
+  }
+
+  .panel-body::-webkit-scrollbar,
+  .supplier-grid::-webkit-scrollbar,
+  .audit-timeline::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .panel-body::-webkit-scrollbar-track,
+  .supplier-grid::-webkit-scrollbar-track,
+  .audit-timeline::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .panel-body::-webkit-scrollbar-thumb,
+  .supplier-grid::-webkit-scrollbar-thumb,
+  .audit-timeline::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.18);
+    border-radius: 10px;
+  }
+
+  .panel-body::-webkit-scrollbar-thumb:hover,
+  .supplier-grid::-webkit-scrollbar-thumb:hover,
+  .audit-timeline::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.3);
+  }
+
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    PayGentic
+  </div>
+  <nav class="nav-links">
+    <a href="index.html" class="nav-link active">Dashboard</a>
+    <a href="suppliers.html" class="nav-link">Suppliers</a>
+    <a href="audit.html" class="nav-link">Audit Trail</a>
+    <a href="approvals.html" class="nav-link">Approvals</a>
+    <a href="settings.html" class="nav-link">Settings</a>
+  </nav>
+  <div class="topbar-right">
+    <div class="status-pill">
+      <div class="status-dot"></div>
+      Agent Active
+    </div>
+  </div>
+</div>
+
+<!-- MAIN GRID -->
+<div class="main">
+
+  <!-- LEFT: Agent Activity -->
+  <div class="panel">
+    <div class="request-box">
+      <div class="panel-title" style="margin-bottom:8px;">New Sourcing Request</div>
+      <textarea class="request-input" id="requestInput" placeholder="e.g. Find 1000kg cotton yarn suppliers under ₹300/kg delivered within 5 days in Tamil Nadu"></textarea>
+      <button class="request-btn" id="startBtn" onclick="startAgent()">▶ Start Agent</button>
+    </div>
+    <div class="panel-header">
+      <div class="panel-title">Agent Activity</div>
+      <div class="panel-subtitle" id="agentStatus">Ready to start</div>
+    </div>
+    <div class="panel-body" id="agentLogs">
+      <div class="empty-state">
+        <div class="empty-icon">⚙</div>
+        <div class="empty-text">Agent will stream logs here in real-time</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER: Suppliers -->
+  <div class="center-panel">
+    <div class="panel-header" style="background:var(--bg2);border-bottom:1px solid var(--border);padding:16px 20px 14px;">
+      <div class="panel-title">Supplier Results</div>
+      <div class="panel-subtitle" id="supplierCount">No suppliers loaded</div>
+    </div>
+    <div class="supplier-grid" id="supplierGrid">
+      <div class="empty-state">
+        <div class="empty-icon">🏭</div>
+        <div class="empty-text">Supplier cards will appear here after agent searches</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Financial / Audit -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">Financial Audit Trail</div>
+      <div class="panel-subtitle">Wallet & escrow status</div>
+    </div>
+    <div class="panel-body" id="auditPanel">
+      <div class="wallet-card">
+        <div class="wallet-label">Wallet Balance</div>
+        <div class="wallet-balance" id="walletBalance">₹50,000</div>
+        <div class="wallet-sub">Locus Paygentic Virtual Wallet</div>
+        <div class="spend-bar-wrap">
+          <div class="spend-bar-label">
+            <span>Spent: <span id="spentAmt">₹0</span></span>
+            <span>Limit: ₹30,000</span>
+          </div>
+          <div class="spend-bar-track">
+            <div class="spend-bar-fill" id="spendBar" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">Escrow Status</div>
+      <div class="wallet-card" style="padding:12px 16px;">
+        <div class="escrow-row">
+          <span class="escrow-key">Escrow Amount</span>
+          <span class="escrow-val" id="escrowAmt">₹0</span>
+        </div>
+        <div class="escrow-row">
+          <span class="escrow-key">Status</span>
+          <span class="status-badge s-pending" id="escrowStatus">Pending</span>
+        </div>
+        <div class="escrow-row">
+          <span class="escrow-key">Supplier</span>
+          <span class="escrow-val" id="escrowSupplier">—</span>
+        </div>
+        <div class="escrow-row">
+          <span class="escrow-key">Approval</span>
+          <span class="status-badge s-pending" id="approvalStatus">Not Required</span>
+        </div>
+        <div class="escrow-actions">
+          <button class="btn-release" onclick="releaseEscrow()">✓ Release</button>
+          <button class="btn-refund" onclick="refundEscrow()">↩ Refund</button>
+        </div>
+      </div>
+
+      <div class="proof-section" onclick="uploadProof()">
+        <div style="font-size:20px;opacity:0.5;">📦</div>
+        <div class="proof-label">Upload shipment proof to release escrow</div>
+      </div>
+
+      <div class="section-label">Transaction Timeline</div>
+      <div class="audit-timeline" id="auditTimeline">
+        <div class="audit-item">
+          <div class="audit-dot" style="background:var(--accent2)"></div>
+          <div class="audit-info">
+            <div class="audit-action">Wallet initialized</div>
+            <div class="audit-detail">Balance: ₹50,000 • Limit: ₹30,000</div>
+            <div class="audit-time">Just now</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- APPROVAL MODAL -->
+<div class="approval-overlay" id="approvalOverlay">
+  <div class="approval-modal">
+    <div class="approval-header">
+      <div class="approval-icon">⚠</div>
+      <div>
+        <div class="approval-title">Human Approval Required</div>
+        <div class="approval-sub">Transaction exceeds spending threshold</div>
+      </div>
+    </div>
+    <div class="approval-details" id="approvalDetails">
+      <div class="approval-row">
+        <span>Supplier</span><span id="modalSupplier">TamilTex Mills</span>
+      </div>
+      <div class="approval-row">
+        <span>Amount</span><span id="modalAmount">₹28,000</span>
+      </div>
+      <div class="approval-row">
+        <span>Quantity</span><span id="modalQty">1000 kg</span>
+      </div>
+      <div class="approval-row highlight-row">
+        <span>Limit Exceeded By</span><span id="modalExcess">₹0</span>
+      </div>
+    </div>
+    <div class="approval-btns">
+      <button class="approval-reject" onclick="rejectPayment()">✕ Reject</button>
+      <button class="approval-approve" onclick="approvePayment()">✓ Approve</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Mock Data ──
+const SUPPLIERS = [
+  { id:'sup_001', name:'TamilTex Mills', location:'Coimbatore', price:280, delivery:4, verified:true, gstin:'33ABCDE1234F1Z5', email:'sales@tamiltex.com', score:92, recommended:true, phone:'+91-422-2345678' },
+  { id:'sup_002', name:'Bharat Yarn Co.', location:'Surat', price:295, delivery:3, verified:true, gstin:'24FGHIJ5678K2A6', email:'info@bharatyarn.in', score:87, recommended:false, phone:'+91-261-3456789' },
+  { id:'sup_003', name:'Nithya Fibres', location:'Tiruppur', price:265, delivery:6, verified:false, gstin:'33LMNOP9012L3B7', email:'nithya.fibres@gmail.com', score:74, recommended:false, phone:'+91-421-4567890' },
+  { id:'sup_004', name:'Arjun Textiles', location:'Ahmedabad', price:310, delivery:3, verified:true, gstin:'24QRSTU3456M4C8', email:'procurement@arjuntex.com', score:81, recommended:false, phone:'+91-79-5678901' },
+  { id:'sup_005', name:'Sri Lakshmi Threads', location:'Erode', price:272, delivery:5, verified:true, gstin:'33VWXYZ7890N5D9', email:'sales@srilakshmi.co.in', score:89, recommended:false, phone:'+91-424-6789012' },
+  { id:'sup_006', name:'Horizon Yarn Industries', location:'Mumbai', price:300, delivery:2, verified:true, gstin:'27ABCDE2345O6E1', email:'orders@horizonyarn.com', score:85, recommended:false, phone:'+91-22-7890123' },
+  { id:'sup_007', name:'Deepika Cotton Works', location:'Salem', price:258, delivery:7, verified:false, gstin:'33FGHIJ6789P7F2', email:'deepika.cotton@yahoo.com', score:68, recommended:false, phone:'+91-427-8901234' },
+  { id:'sup_008', name:'Megha Fibre Industries', location:'Ludhiana', price:285, delivery:5, verified:true, gstin:'03KLMNO0123Q8G3', email:'megha@mfibre.in', score:83, recommended:false, phone:'+91-161-9012345' }
+];
+
+const LOGS = [
+  { icon:'🔍', type:'search', action:'Parsing request', detail:'Extracted: cotton yarn, 1000kg, ₹300/kg, 5 days, Tamil Nadu', time:'0s' },
+  { icon:'🌐', type:'search', action:'Supplier search via Exa API', detail:'Query: "cotton yarn supplier India wholesale"', time:'1.2s' },
+  { icon:'🕷', type:'search', action:'Firecrawl scraping', detail:'Scraped 12 supplier websites for pricing & contact', time:'3.1s' },
+  { icon:'✨', type:'enrich', action:'Enriching supplier data', detail:'Apollo API: GSTIN validation, company scores', time:'5.4s' },
+  { icon:'📊', type:'enrich', action:'Ranking suppliers', detail:'Scoring by price, delivery, verification, location', time:'7.2s' },
+  { icon:'📧', type:'email', action:'Sending quote requests', detail:'Resend API: 8 emails dispatched', time:'9.1s' },
+  { icon:'🏆', type:'ok', action:'Best supplier selected', detail:'TamilTex Mills — Score 92, ₹280/kg, 4 days', time:'9.8s' },
+  { icon:'🔒', type:'escrow', action:'Creating escrow payment', detail:'Amount: ₹28,000 for 1000kg @ ₹280/kg', time:'11.2s' },
+  { icon:'⚠', type:'warn', action:'Spending limit check', detail:'₹28,000 exceeds threshold ₹2,000 — requesting approval', time:'11.5s' },
+];
+
+let state = {
+  running: false,
+  logStep: 0,
+  suppliersShown: false,
+  walletBalance: 50000,
+  spent: 0,
+  escrowAmt: 0,
+  escrowStatus: 'idle',
+  selectedSupplier: null,
+};
+
+function formatINR(n) { return '₹' + n.toLocaleString('en-IN'); }
+
+function addLog(log) {
+  const container = document.getElementById('agentLogs');
+  if (container.querySelector('.empty-state')) container.innerHTML = '';
+  const el = document.createElement('div');
+  el.className = 'log-entry';
+  el.innerHTML = `
+    <div class="log-icon ${log.type}">${log.icon}</div>
+    <div class="log-text">
+      <div class="log-action">${log.action}</div>
+      <div class="log-detail">${log.detail}</div>
+    </div>
+    <div class="log-time">${log.time}</div>
+  `;
+  container.appendChild(el);
+  container.scrollTop = container.scrollHeight;
+}
+
+function addAudit(action, detail, color, badge) {
+  const container = document.getElementById('auditTimeline');
+  const el = document.createElement('div');
+  el.className = 'audit-item';
+  el.innerHTML = `
+    <div class="audit-dot" style="background:${color}"></div>
+    <div class="audit-info">
+      <div class="audit-action">${action}</div>
+      <div class="audit-detail">${detail}</div>
+      <div class="audit-time">${new Date().toLocaleTimeString()}</div>
+    </div>
+    ${badge ? `<span class="status-badge ${badge.cls}">${badge.text}</span>` : ''}
+  `;
+  container.appendChild(el);
+  container.scrollTop = container.scrollHeight;
+}
+
+function renderSuppliers(suppliers) {
+  const grid = document.getElementById('supplierGrid');
+  grid.innerHTML = '';
+  suppliers.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'supplier-card' + (s.recommended ? ' recommended' : '');
+    card.innerHTML = `
+      <div class="card-top">
+        <div>
+          <div class="card-company">${s.name}</div>
+          <div class="card-location">📍 ${s.location}</div>
+        </div>
+        <div class="score-badge">${s.score}</div>
+      </div>
+      <div class="card-metrics">
+        <div class="metric">
+          <div class="metric-label">Price/kg</div>
+          <div class="metric-value">₹${s.price}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Delivery</div>
+          <div class="metric-value">${s.delivery}d</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Score</div>
+          <div class="metric-value">${s.score}/100</div>
+        </div>
+      </div>
+      <div class="card-meta">
+        ${s.verified ? '<span class="tag tag-verified">✓ Verified</span>' : ''}
+        ${s.recommended ? '<span class="tag tag-recommended">★ Recommended</span>' : ''}
+        <span class="tag tag-gstin">${s.gstin}</span>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-ghost" onclick="viewSupplier('${s.id}')">Details</button>
+        <button class="btn btn-outline" onclick="sendQuote('${s.id}')">Send Quote</button>
+        <button class="btn btn-primary" onclick="selectSupplier('${s.id}')">Select</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+  document.getElementById('supplierCount').textContent = `${suppliers.length} suppliers found • 1 recommended`;
+}
+
+async function startAgent() {
+  const input = document.getElementById('requestInput').value.trim();
+  if (!input) return;
+  if (state.running) return;
+  state.running = true;
+
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('startBtn').textContent = '⟳ Agent Running...';
+  document.getElementById('agentLogs').innerHTML = '';
+  document.getElementById('supplierGrid').innerHTML = '<div class="empty-state"><div class="empty-icon">⟳</div><div class="empty-text">Agent searching...</div></div>';
+
+  // Show step indicator
+  const indicator = document.createElement('div');
+  indicator.className = 'step-indicator';
+  indicator.id = 'stepIndicator';
+  indicator.innerHTML = '<div class="step-spinner"></div><div class="step-text" id="stepText">Initializing agent...</div>';
+  document.getElementById('agentLogs').appendChild(indicator);
+
+  document.getElementById('agentStatus').textContent = 'Running — streaming logs';
+
+  // Stream logs with delays
+  for (let i = 0; i < LOGS.length; i++) {
+    await delay(1200 + Math.random() * 600);
+    document.getElementById('stepText').textContent = LOGS[i].action + '...';
+    addLog(LOGS[i]);
+
+    if (i === 4) {
+      renderSuppliers(SUPPLIERS);
+      addAudit('Suppliers loaded', '8 suppliers ranked and scored', 'var(--accent2)', null);
+    }
+    if (i === 6) {
+      addAudit('Supplier selected', 'TamilTex Mills — ₹280/kg — Score 92', 'var(--accent)', null);
+    }
+    if (i === 7) {
+      state.escrowAmt = 28000;
+      state.selectedSupplier = SUPPLIERS[0];
+      document.getElementById('escrowAmt').textContent = formatINR(28000);
+      document.getElementById('escrowSupplier').textContent = 'TamilTex Mills';
+      document.getElementById('escrowStatus').textContent = 'Locked';
+      document.getElementById('escrowStatus').className = 'status-badge s-locked';
+      addAudit('Escrow created', 'Amount: ₹28,000 locked for TamilTex Mills', 'var(--purple)', {cls:'s-locked', text:'Locked'});
+    }
+    if (i === 8) {
+      document.getElementById('approvalStatus').textContent = 'Awaiting Approval';
+      document.getElementById('approvalStatus').className = 'status-badge s-pending';
+      addAudit('Approval required', 'Amount ₹28,000 exceeds ₹2,000 threshold', 'var(--amber)', {cls:'s-pending', text:'Pending'});
+      await delay(800);
+      showApproval();
+    }
+  }
+
+  document.getElementById('stepIndicator')?.remove();
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('startBtn').textContent = '▶ Start Agent';
+  document.getElementById('agentStatus').textContent = 'Completed — awaiting approval';
+  state.running = false;
+}
+
+function showApproval() {
+  document.getElementById('modalSupplier').textContent = 'TamilTex Mills';
+  document.getElementById('modalAmount').textContent = '₹28,000';
+  document.getElementById('modalQty').textContent = '1000 kg @ ₹280/kg';
+  document.getElementById('modalExcess').textContent = '₹26,000';
+  document.getElementById('approvalOverlay').classList.add('show');
+}
+
+function approvePayment() {
+  document.getElementById('approvalOverlay').classList.remove('show');
+  state.spent = 28000;
+  state.walletBalance = 50000 - 28000;
+  document.getElementById('walletBalance').textContent = formatINR(state.walletBalance);
+  document.getElementById('spentAmt').textContent = formatINR(state.spent);
+  document.getElementById('spendBar').style.width = ((state.spent / 30000) * 100) + '%';
+  document.getElementById('approvalStatus').textContent = 'Approved';
+  document.getElementById('approvalStatus').className = 'status-badge s-approved';
+  document.getElementById('escrowStatus').textContent = 'Locked';
+  addLog({ icon:'✅', type:'ok', action:'Payment approved by human', detail:'₹28,000 approved — awaiting shipment proof', time:'—' });
+  addAudit('Payment approved', 'Human approved ₹28,000 for TamilTex Mills', 'var(--green)', {cls:'s-approved', text:'Approved'});
+}
+
+function rejectPayment() {
+  document.getElementById('approvalOverlay').classList.remove('show');
+  document.getElementById('approvalStatus').textContent = 'Rejected';
+  document.getElementById('approvalStatus').className = 'status-badge s-blocked';
+  document.getElementById('escrowStatus').textContent = 'Blocked';
+  document.getElementById('escrowStatus').className = 'status-badge s-blocked';
+  addLog({ icon:'❌', type:'warn', action:'Payment rejected by human', detail:'Escrow refunded — select alternative supplier', time:'—' });
+  addAudit('Payment rejected', 'Transaction blocked by approver', 'var(--coral)', {cls:'s-blocked', text:'Blocked'});
+}
+
+function releaseEscrow() {
+  document.getElementById('escrowStatus').textContent = 'Released';
+  document.getElementById('escrowStatus').className = 'status-badge s-released';
+  addAudit('Escrow released', '₹28,000 released to TamilTex Mills', 'var(--accent)', {cls:'s-released', text:'Released'});
+  addLog({ icon:'🎉', type:'ok', action:'Escrow released', detail:'Payment sent to TamilTex Mills — procurement complete', time:'—' });
+}
+
+function refundEscrow() {
+  document.getElementById('escrowStatus').textContent = 'Refunded';
+  document.getElementById('escrowStatus').className = 'status-badge s-refunded';
+  state.walletBalance = 50000;
+  document.getElementById('walletBalance').textContent = formatINR(state.walletBalance);
+  addAudit('Escrow refunded', '₹28,000 returned to wallet', 'var(--accent2)', {cls:'s-refunded', text:'Refunded'});
+  addLog({ icon:'↩', type:'escrow', action:'Escrow refunded', detail:'₹28,000 returned to Locus wallet', time:'—' });
+}
+
+function selectSupplier(id) {
+  const s = SUPPLIERS.find(x => x.id === id);
+  if (!s) return;
+  addLog({ icon:'🏆', type:'ok', action:`Selected: ${s.name}`, detail:`₹${s.price}/kg · ${s.delivery} days · Score ${s.score}`, time:'—' });
+  addAudit('Supplier selected manually', `${s.name} — ₹${s.price}/kg`, 'var(--accent)', null);
+}
+
+function sendQuote(id) {
+  const s = SUPPLIERS.find(x => x.id === id);
+  addLog({ icon:'📧', type:'email', action:`Quote sent to ${s.name}`, detail:`Email: ${s.email}`, time:'—' });
+}
+
+function viewSupplier(id) {
+  window.location.href = `suppliers.html?id=${id}`;
+}
+
+function uploadProof() {
+  addLog({ icon:'📦', type:'ok', action:'Shipment proof uploaded', detail:'PDF verified — ready to release escrow', time:'—' });
+  addAudit('Proof uploaded', 'Shipment document verified', 'var(--accent)', null);
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>

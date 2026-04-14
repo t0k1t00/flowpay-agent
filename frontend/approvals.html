@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Approvals — PayGentic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root{--bg:#0a0b0f;--bg2:#111318;--bg3:#181b22;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--text:#e8eaf0;--muted:#7a8099;--accent:#6ee7b7;--accent2:#38bdf8;--amber:#fbbf24;--coral:#f87171;--purple:#a78bfa;--green:#4ade80;--font-head:'Syne',sans-serif;--font-body:'Manrope',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:12px;--radius-sm:8px;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:14px;line-height:1.6;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:56px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+  .logo{font-family:var(--font-head);font-size:18px;font-weight:800;letter-spacing:-0.5px;color:var(--accent);display:flex;align-items:center;gap:8px;}
+  .logo-dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}
+  .nav-links{display:flex;gap:4px;}
+  .nav-link{font-family:var(--font-head);font-size:12px;font-weight:600;text-decoration:none;color:var(--muted);padding:6px 14px;border-radius:var(--radius-sm);transition:all 0.15s;letter-spacing:0.3px;}
+  .nav-link:hover{color:var(--text);background:var(--bg3);}
+  .nav-link.active{color:var(--accent);background:rgba(110,231,183,0.08);}
+  .status-pill{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;color:var(--amber);background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:20px;padding:4px 12px;}
+  .status-dot{width:6px;height:6px;border-radius:50%;background:var(--amber);animation:pulse 1.5s infinite;}
+
+  .page-content{max-width:900px;margin:0 auto;padding:32px 24px;}
+  .page-header{margin-bottom:28px;}
+  .page-title{font-family:var(--font-head);font-size:24px;font-weight:800;color:var(--text);margin-bottom:6px;}
+  .page-sub{font-size:13px;color:var(--muted);}
+
+  .pending-banner{background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:var(--radius);padding:16px 20px;display:flex;align-items:center;gap:14px;margin-bottom:24px;}
+  .banner-icon{font-size:22px;}
+  .banner-text{flex:1;}
+  .banner-title{font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--amber);}
+  .banner-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+
+  .approval-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden;transition:border-color 0.2s;}
+  .approval-card.pending{border-color:rgba(251,191,36,0.25);}
+  .approval-card.approved{border-color:rgba(74,222,128,0.2);opacity:0.7;}
+  .approval-card.rejected{border-color:rgba(248,113,113,0.2);opacity:0.7;}
+  .ac-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+  .ac-title{font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--text);}
+  .ac-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+  .badge{font-family:var(--font-mono);font-size:10px;padding:4px 10px;border-radius:5px;}
+  .b-pending{background:rgba(251,191,36,0.12);color:var(--amber);border:1px solid rgba(251,191,36,0.25);}
+  .b-approved{background:rgba(74,222,128,0.1);color:var(--green);border:1px solid rgba(74,222,128,0.2);}
+  .b-rejected{background:rgba(248,113,113,0.1);color:var(--coral);border:1px solid rgba(248,113,113,0.2);}
+  .ac-body{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;padding:16px 20px;border-bottom:1px solid var(--border);}
+  .ac-field{padding:8px 12px;}
+  .ac-field:not(:last-child){border-right:1px solid var(--border);}
+  .ac-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px;}
+  .ac-value{font-family:var(--font-mono);font-size:14px;font-weight:500;color:var(--text);}
+  .ac-value.large{font-size:18px;color:var(--amber);}
+  .ac-actions{display:flex;gap:10px;padding:14px 20px;}
+  .btn-reject{background:rgba(248,113,113,0.1);color:var(--coral);border:1px solid rgba(248,113,113,0.25);padding:9px 20px;border-radius:var(--radius-sm);cursor:pointer;font-family:var(--font-head);font-size:12px;font-weight:700;transition:all 0.15s;}
+  .btn-reject:hover{background:rgba(248,113,113,0.2);}
+  .btn-approve{background:var(--accent);color:#0a0b0f;border:none;padding:9px 20px;border-radius:var(--radius-sm);cursor:pointer;font-family:var(--font-head);font-size:12px;font-weight:700;transition:all 0.15s;}
+  .btn-approve:hover{background:#4ade9b;}
+  .ac-reason{padding:12px 20px;background:var(--bg3);border-top:1px solid var(--border);font-size:12px;color:var(--muted);}
+  .ac-reason strong{color:var(--text);}
+
+  .history-section{margin-top:32px;}
+  .section-label{font-family:var(--font-head);font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:14px;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo"><div class="logo-dot"></div>PayGentic</div>
+  <nav class="nav-links">
+    <a href="index.html" class="nav-link">Dashboard</a>
+    <a href="suppliers.html" class="nav-link">Suppliers</a>
+    <a href="audit.html" class="nav-link">Audit Trail</a>
+    <a href="approvals.html" class="nav-link active">Approvals</a>
+    <a href="settings.html" class="nav-link">Settings</a>
+  </nav>
+  <div class="status-pill"><div class="status-dot"></div>1 Pending</div>
+</div>
+
+<div class="page-content">
+  <div class="page-header">
+    <div class="page-title">Approval Center</div>
+    <div class="page-sub">Review and approve procurement transactions that exceed spending thresholds</div>
+  </div>
+
+  <div class="pending-banner">
+    <div class="banner-icon">⚠</div>
+    <div class="banner-text">
+      <div class="banner-title">1 transaction awaiting your approval</div>
+      <div class="banner-sub">Agent has paused — manual authorization required before funds are released</div>
+    </div>
+  </div>
+
+  <div class="section-label">Pending Approvals</div>
+
+  <div class="approval-card pending" id="card_001">
+    <div class="ac-header">
+      <div>
+        <div class="ac-title">Cotton Yarn Procurement — TamilTex Mills</div>
+        <div class="ac-sub">Request ID: REQ-2026-0041 · Submitted 2 minutes ago</div>
+      </div>
+      <span class="badge b-pending">Awaiting Approval</span>
+    </div>
+    <div class="ac-body">
+      <div class="ac-field">
+        <div class="ac-label">Total Amount</div>
+        <div class="ac-value large">₹28,000</div>
+      </div>
+      <div class="ac-field">
+        <div class="ac-label">Supplier</div>
+        <div class="ac-value">TamilTex Mills</div>
+      </div>
+      <div class="ac-field">
+        <div class="ac-label">Quantity</div>
+        <div class="ac-value">1000 kg @ ₹280</div>
+      </div>
+    </div>
+    <div class="ac-reason">
+      <strong>Why approval is needed:</strong> Amount ₹28,000 exceeds the auto-approve threshold of ₹2,000. 
+      Supplier verified · GSTIN valid · Score 92/100 · Delivery: 4 days.
+    </div>
+    <div class="ac-actions">
+      <button class="btn-reject" onclick="reject('card_001')">✕ Reject Transaction</button>
+      <button class="btn-approve" onclick="approve('card_001')">✓ Approve &amp; Lock Escrow</button>
+    </div>
+  </div>
+
+  <div class="history-section">
+    <div class="section-label">Approval History</div>
+
+    <div class="approval-card approved">
+      <div class="ac-header">
+        <div>
+          <div class="ac-title">Textile Dye Procurement — Shree Dye Works</div>
+          <div class="ac-sub">Request ID: REQ-2026-0039 · Approved yesterday</div>
+        </div>
+        <span class="badge b-approved">✓ Approved</span>
+      </div>
+      <div class="ac-body">
+        <div class="ac-field"><div class="ac-label">Amount</div><div class="ac-value">₹15,000</div></div>
+        <div class="ac-field"><div class="ac-label">Supplier</div><div class="ac-value">Shree Dye Works</div></div>
+        <div class="ac-field"><div class="ac-label">Status</div><div class="ac-value" style="color:var(--green)">Escrow Released</div></div>
+      </div>
+    </div>
+
+    <div class="approval-card rejected">
+      <div class="ac-header">
+        <div>
+          <div class="ac-title">Steel Rod Order — Metro Steel Corp</div>
+          <div class="ac-sub">Request ID: REQ-2026-0037 · Rejected 3 days ago</div>
+        </div>
+        <span class="badge b-rejected">✕ Rejected</span>
+      </div>
+      <div class="ac-body">
+        <div class="ac-field"><div class="ac-label">Amount</div><div class="ac-value">₹62,000</div></div>
+        <div class="ac-field"><div class="ac-label">Supplier</div><div class="ac-value">Metro Steel Corp</div></div>
+        <div class="ac-field"><div class="ac-label">Status</div><div class="ac-value" style="color:var(--coral)">Refunded</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function approve(cardId) {
+  const card = document.getElementById(cardId);
+  card.classList.remove('pending');
+  card.classList.add('approved');
+  card.querySelector('.badge').textContent = '✓ Approved';
+  card.querySelector('.badge').className = 'badge b-approved';
+  card.querySelector('.ac-actions').innerHTML = '<div style="font-size:12px;color:var(--green);padding:4px 0;">✓ Approved — Escrow locked and agent notified</div>';
+  document.querySelector('.pending-banner').style.display = 'none';
+  document.querySelector('.status-pill').innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block;"></span>&nbsp;All clear';
+  document.querySelector('.status-pill').style.color = 'var(--accent)';
+}
+
+function reject(cardId) {
+  const card = document.getElementById(cardId);
+  card.classList.remove('pending');
+  card.classList.add('rejected');
+  card.querySelector('.badge').textContent = '✕ Rejected';
+  card.querySelector('.badge').className = 'badge b-rejected';
+  card.querySelector('.ac-actions').innerHTML = '<div style="font-size:12px;color:var(--coral);padding:4px 0;">✕ Rejected — Escrow funds returned to wallet</div>';
+  document.querySelector('.pending-banner').style.display = 'none';
+}
+</script>
+</body>
+</html>

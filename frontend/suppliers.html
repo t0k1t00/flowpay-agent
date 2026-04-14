@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Suppliers — PayGentic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:#0a0b0f;--bg2:#111318;--bg3:#181b22;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+    --text:#e8eaf0;--muted:#7a8099;--accent:#6ee7b7;--accent2:#38bdf8;--amber:#fbbf24;--coral:#f87171;--purple:#a78bfa;--green:#4ade80;
+    --font-head:'Syne',sans-serif;--font-body:'Manrope',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:12px;--radius-sm:8px;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:14px;line-height:1.6;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:56px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+  .logo{font-family:var(--font-head);font-size:18px;font-weight:800;letter-spacing:-0.5px;color:var(--accent);display:flex;align-items:center;gap:8px;}
+  .logo-dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}
+  .nav-links{display:flex;gap:4px;}
+  .nav-link{font-family:var(--font-head);font-size:12px;font-weight:600;text-decoration:none;color:var(--muted);padding:6px 14px;border-radius:var(--radius-sm);transition:all 0.15s;letter-spacing:0.3px;}
+  .nav-link:hover{color:var(--text);background:var(--bg3);}
+  .nav-link.active{color:var(--accent);background:rgba(110,231,183,0.08);}
+  .status-pill{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;color:var(--accent);background:rgba(110,231,183,0.08);border:1px solid rgba(110,231,183,0.2);border-radius:20px;padding:4px 12px;}
+  .status-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.5s infinite;}
+
+  .page-content{max-width:1200px;margin:0 auto;padding:32px 24px;}
+  .page-header{margin-bottom:28px;}
+  .page-title{font-family:var(--font-head);font-size:24px;font-weight:800;color:var(--text);margin-bottom:6px;}
+  .page-sub{font-size:13px;color:var(--muted);}
+  
+  .filter-bar{display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap;}
+  .filter-btn{font-family:var(--font-head);font-size:11px;font-weight:700;letter-spacing:0.3px;padding:7px 14px;border-radius:6px;border:1px solid var(--border2);background:var(--bg2);color:var(--muted);cursor:pointer;transition:all 0.15s;}
+  .filter-btn.active{border-color:rgba(110,231,183,0.3);background:rgba(110,231,183,0.08);color:var(--accent);}
+  .filter-btn:hover{color:var(--text);}
+  .search-input{flex:1;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--font-body);font-size:13px;padding:7px 14px;outline:none;min-width:200px;}
+  .search-input:focus{border-color:rgba(110,231,183,0.3);}
+  .search-input::placeholder{color:var(--muted);}
+
+  .supplier-table{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  .table-header{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.5fr;padding:12px 20px;background:var(--bg3);border-bottom:1px solid var(--border);gap:10px;}
+  .th{font-family:var(--font-head);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+  .table-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.5fr;padding:14px 20px;border-bottom:1px solid var(--border);align-items:center;gap:10px;transition:background 0.15s;cursor:pointer;}
+  .table-row:last-child{border-bottom:none;}
+  .table-row:hover{background:var(--bg3);}
+  .company-name{font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--text);}
+  .company-loc{font-size:11px;color:var(--muted);}
+  .price-val{font-family:var(--font-mono);font-size:13px;color:var(--accent);}
+  .score-bar{display:flex;align-items:center;gap:8px;}
+  .score-num{font-family:var(--font-mono);font-size:12px;color:var(--text);width:28px;}
+  .mini-bar{flex:1;height:4px;background:var(--bg);border-radius:2px;overflow:hidden;}
+  .mini-fill{height:100%;background:var(--accent);border-radius:2px;}
+  .tag{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;}
+  .tag-v{background:rgba(74,222,128,0.1);color:var(--green);border:1px solid rgba(74,222,128,0.2);}
+  .tag-u{background:rgba(248,113,113,0.1);color:var(--coral);border:1px solid rgba(248,113,113,0.2);}
+  .row-actions{display:flex;gap:6px;}
+  .mini-btn{font-family:var(--font-head);font-size:10px;font-weight:700;padding:5px 10px;border-radius:5px;cursor:pointer;transition:all 0.15s;border:none;}
+  .mb-ghost{background:var(--bg3);color:var(--muted);border:1px solid var(--border);}
+  .mb-ghost:hover{color:var(--text);}
+  .mb-primary{background:var(--accent);color:#0a0b0f;}
+  .mb-primary:hover{background:#4ade9b;}
+
+  /* Detail panel */
+  .detail-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center;}
+  .detail-overlay.show{display:flex;}
+  .detail-panel{background:var(--bg2);border:1px solid var(--border2);border-radius:16px;width:520px;max-height:80vh;overflow-y:auto;}
+  .dp-header{padding:24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;}
+  .dp-name{font-family:var(--font-head);font-size:20px;font-weight:800;}
+  .dp-close{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;font-family:var(--font-head);font-size:11px;font-weight:700;color:var(--muted);transition:all 0.15s;}
+  .dp-close:hover{color:var(--text);}
+  .dp-body{padding:20px 24px;}
+  .dp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
+  .dp-field{background:var(--bg3);border-radius:var(--radius-sm);padding:12px;}
+  .dp-label{font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:4px;}
+  .dp-value{font-family:var(--font-mono);font-size:13px;color:var(--text);}
+  .dp-section{font-family:var(--font-head);font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin:16px 0 10px;}
+  .dp-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 24px 24px;}
+  .dp-btn{padding:11px;border-radius:var(--radius-sm);font-family:var(--font-head);font-size:12px;font-weight:700;cursor:pointer;transition:all 0.15s;border:none;text-align:center;}
+  .dp-btn-outline{background:transparent;color:var(--accent2);border:1px solid rgba(56,189,248,0.3);}
+  .dp-btn-outline:hover{background:rgba(56,189,248,0.08);}
+  .dp-btn-solid{background:var(--accent);color:#0a0b0f;}
+  .dp-btn-solid:hover{background:#4ade9b;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo"><div class="logo-dot"></div>PayGentic</div>
+  <nav class="nav-links">
+    <a href="index.html" class="nav-link">Dashboard</a>
+    <a href="suppliers.html" class="nav-link active">Suppliers</a>
+    <a href="audit.html" class="nav-link">Audit Trail</a>
+    <a href="approvals.html" class="nav-link">Approvals</a>
+    <a href="settings.html" class="nav-link">Settings</a>
+  </nav>
+  <div class="status-pill"><div class="status-dot"></div>Agent Active</div>
+</div>
+
+<div class="page-content">
+  <div class="page-header">
+    <div class="page-title">Supplier Directory</div>
+    <div class="page-sub">8 suppliers found • Ranked by score • Last updated just now</div>
+  </div>
+  <div class="filter-bar">
+    <input class="search-input" placeholder="Search suppliers..." oninput="filterSuppliers(this.value)"/>
+    <button class="filter-btn active" onclick="setFilter('all',this)">All (8)</button>
+    <button class="filter-btn" onclick="setFilter('verified',this)">Verified Only</button>
+    <button class="filter-btn" onclick="setFilter('cheap',this)">Under ₹280/kg</button>
+    <button class="filter-btn" onclick="setFilter('fast',this)">Under 4 Days</button>
+  </div>
+  <div class="supplier-table">
+    <div class="table-header">
+      <div class="th">Company</div>
+      <div class="th">Price/kg</div>
+      <div class="th">Delivery</div>
+      <div class="th">Score</div>
+      <div class="th">Verified</div>
+      <div class="th">Email</div>
+      <div class="th">Actions</div>
+    </div>
+    <div id="supplierRows"></div>
+  </div>
+</div>
+
+<!-- Detail Panel -->
+<div class="detail-overlay" id="detailOverlay">
+  <div class="detail-panel">
+    <div class="dp-header">
+      <div>
+        <div class="dp-name" id="dpName"></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;" id="dpLoc"></div>
+      </div>
+      <button class="dp-close" onclick="closeDetail()">✕ Close</button>
+    </div>
+    <div class="dp-body">
+      <div class="dp-section">Contact & Verification</div>
+      <div class="dp-grid" id="dpGrid"></div>
+      <div class="dp-section">Pricing Details</div>
+      <div class="dp-grid" id="dpPricing"></div>
+    </div>
+    <div class="dp-actions">
+      <button class="dp-btn dp-btn-outline" onclick="sendQuoteFromDetail()">📧 Send Quote</button>
+      <button class="dp-btn dp-btn-solid" onclick="selectFromDetail()">✓ Select Supplier</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPPLIERS = [
+  {id:'sup_001',name:'TamilTex Mills',location:'Coimbatore',price:280,delivery:4,verified:true,gstin:'33ABCDE1234F1Z5',email:'sales@tamiltex.com',score:92,phone:'+91-422-2345678',website:'tamiltex.com',category:'Cotton Yarn'},
+  {id:'sup_002',name:'Bharat Yarn Co.',location:'Surat',price:295,delivery:3,verified:true,gstin:'24FGHIJ5678K2A6',email:'info@bharatyarn.in',score:87,phone:'+91-261-3456789',website:'bharatyarn.in',category:'Cotton Yarn'},
+  {id:'sup_003',name:'Nithya Fibres',location:'Tiruppur',price:265,delivery:6,verified:false,gstin:'33LMNOP9012L3B7',email:'nithya.fibres@gmail.com',score:74,phone:'+91-421-4567890',website:'—',category:'Cotton Yarn'},
+  {id:'sup_004',name:'Arjun Textiles',location:'Ahmedabad',price:310,delivery:3,verified:true,gstin:'24QRSTU3456M4C8',email:'procurement@arjuntex.com',score:81,phone:'+91-79-5678901',website:'arjuntex.com',category:'Cotton Yarn'},
+  {id:'sup_005',name:'Sri Lakshmi Threads',location:'Erode',price:272,delivery:5,verified:true,gstin:'33VWXYZ7890N5D9',email:'sales@srilakshmi.co.in',score:89,phone:'+91-424-6789012',website:'srilakshmi.co.in',category:'Cotton Yarn'},
+  {id:'sup_006',name:'Horizon Yarn Industries',location:'Mumbai',price:300,delivery:2,verified:true,gstin:'27ABCDE2345O6E1',email:'orders@horizonyarn.com',score:85,phone:'+91-22-7890123',website:'horizonyarn.com',category:'Cotton Yarn'},
+  {id:'sup_007',name:'Deepika Cotton Works',location:'Salem',price:258,delivery:7,verified:false,gstin:'33FGHIJ6789P7F2',email:'deepika.cotton@yahoo.com',score:68,phone:'+91-427-8901234',website:'—',category:'Cotton Yarn'},
+  {id:'sup_008',name:'Megha Fibre Industries',location:'Ludhiana',price:285,delivery:5,verified:true,gstin:'03KLMNO0123Q8G3',email:'megha@mfibre.in',score:83,phone:'+91-161-9012345',website:'mfibre.in',category:'Cotton Yarn'}
+];
+
+let filtered = [...SUPPLIERS];
+let activeSupplier = null;
+
+function renderRows(suppliers) {
+  const container = document.getElementById('supplierRows');
+  container.innerHTML = suppliers.map(s => `
+    <div class="table-row" onclick="showDetail('${s.id}')">
+      <div><div class="company-name">${s.name}</div><div class="company-loc">📍 ${s.location}</div></div>
+      <div class="price-val">₹${s.price}</div>
+      <div style="font-family:var(--font-mono);font-size:13px;">${s.delivery}d</div>
+      <div class="score-bar">
+        <span class="score-num">${s.score}</span>
+        <div class="mini-bar"><div class="mini-fill" style="width:${s.score}%"></div></div>
+      </div>
+      <div><span class="tag ${s.verified?'tag-v':'tag-u'}">${s.verified?'✓ Yes':'✕ No'}</span></div>
+      <div style="font-size:11px;color:var(--muted);word-break:break-all;">${s.email}</div>
+      <div class="row-actions" onclick="event.stopPropagation()">
+        <button class="mini-btn mb-ghost" onclick="sendQuote('${s.id}')">Quote</button>
+        <button class="mini-btn mb-primary" onclick="selectSupplier('${s.id}')">Select</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function filterSuppliers(q) {
+  filtered = SUPPLIERS.filter(s => s.name.toLowerCase().includes(q.toLowerCase()) || s.location.toLowerCase().includes(q.toLowerCase()));
+  renderRows(filtered);
+}
+
+function setFilter(type, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (type === 'all') filtered = [...SUPPLIERS];
+  else if (type === 'verified') filtered = SUPPLIERS.filter(s => s.verified);
+  else if (type === 'cheap') filtered = SUPPLIERS.filter(s => s.price < 280);
+  else if (type === 'fast') filtered = SUPPLIERS.filter(s => s.delivery < 4);
+  renderRows(filtered);
+}
+
+function showDetail(id) {
+  const s = SUPPLIERS.find(x => x.id === id);
+  activeSupplier = s;
+  document.getElementById('dpName').textContent = s.name;
+  document.getElementById('dpLoc').textContent = '📍 ' + s.location + ' · ' + s.category;
+  document.getElementById('dpGrid').innerHTML = `
+    <div class="dp-field"><div class="dp-label">Email</div><div class="dp-value" style="font-size:11px;">${s.email}</div></div>
+    <div class="dp-field"><div class="dp-label">Phone</div><div class="dp-value">${s.phone}</div></div>
+    <div class="dp-field"><div class="dp-label">GSTIN</div><div class="dp-value" style="font-size:11px;">${s.gstin}</div></div>
+    <div class="dp-field"><div class="dp-label">Website</div><div class="dp-value">${s.website}</div></div>
+    <div class="dp-field"><div class="dp-label">Verified</div><div class="dp-value" style="color:${s.verified?'var(--green)':'var(--coral)'}">${s.verified?'✓ Verified':'✕ Unverified'}</div></div>
+    <div class="dp-field"><div class="dp-label">Score</div><div class="dp-value" style="color:var(--accent)">${s.score}/100</div></div>
+  `;
+  document.getElementById('dpPricing').innerHTML = `
+    <div class="dp-field"><div class="dp-label">Price per kg</div><div class="dp-value" style="color:var(--accent)">₹${s.price}</div></div>
+    <div class="dp-field"><div class="dp-label">Delivery Days</div><div class="dp-value">${s.delivery} days</div></div>
+    <div class="dp-field"><div class="dp-label">1000kg Total</div><div class="dp-value" style="color:var(--amber)">₹${(s.price*1000).toLocaleString('en-IN')}</div></div>
+    <div class="dp-field"><div class="dp-label">MOQ</div><div class="dp-value">500 kg</div></div>
+  `;
+  document.getElementById('detailOverlay').classList.add('show');
+}
+
+function closeDetail() { document.getElementById('detailOverlay').classList.remove('show'); }
+function sendQuote(id) { const s = SUPPLIERS.find(x=>x.id===id); alert(`Quote request sent to ${s.name} at ${s.email}`); }
+function sendQuoteFromDetail() { sendQuote(activeSupplier?.id); closeDetail(); }
+function selectSupplier(id) { const s = SUPPLIERS.find(x=>x.id===id); alert(`${s.name} selected! Creating escrow...`); }
+function selectFromDetail() { selectSupplier(activeSupplier?.id); closeDetail(); }
+
+// Auto-open if ?id= param
+const urlId = new URLSearchParams(location.search).get('id');
+renderRows(SUPPLIERS);
+if (urlId) showDetail(urlId);
+</script>
+</body>
+</html>

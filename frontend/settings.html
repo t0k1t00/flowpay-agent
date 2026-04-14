@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Settings — PayGentic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root{--bg:#0a0b0f;--bg2:#111318;--bg3:#181b22;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--text:#e8eaf0;--muted:#7a8099;--accent:#6ee7b7;--accent2:#38bdf8;--amber:#fbbf24;--coral:#f87171;--purple:#a78bfa;--green:#4ade80;--font-head:'Syne',sans-serif;--font-body:'Manrope',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:12px;--radius-sm:8px;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:14px;line-height:1.6;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:56px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+  .logo{font-family:var(--font-head);font-size:18px;font-weight:800;letter-spacing:-0.5px;color:var(--accent);display:flex;align-items:center;gap:8px;}
+  .logo-dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}
+  .nav-links{display:flex;gap:4px;}
+  .nav-link{font-family:var(--font-head);font-size:12px;font-weight:600;text-decoration:none;color:var(--muted);padding:6px 14px;border-radius:var(--radius-sm);transition:all 0.15s;letter-spacing:0.3px;}
+  .nav-link:hover{color:var(--text);background:var(--bg3);}
+  .nav-link.active{color:var(--accent);background:rgba(110,231,183,0.08);}
+  .status-pill{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;color:var(--accent);background:rgba(110,231,183,0.08);border:1px solid rgba(110,231,183,0.2);border-radius:20px;padding:4px 12px;}
+  .status-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.5s infinite;}
+
+  .layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 56px);}
+  .sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:20px 0;}
+  .sidebar-group{margin-bottom:24px;}
+  .sidebar-label{font-family:var(--font-head);font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);padding:0 20px;margin-bottom:8px;}
+  .sidebar-item{display:flex;align-items:center;gap:10px;padding:9px 20px;font-size:13px;color:var(--muted);cursor:pointer;transition:all 0.15s;}
+  .sidebar-item:hover{color:var(--text);background:var(--bg3);}
+  .sidebar-item.active{color:var(--accent);background:rgba(110,231,183,0.06);border-right:2px solid var(--accent);}
+  .sidebar-icon{font-size:14px;width:18px;text-align:center;}
+
+  .settings-content{padding:32px 36px;max-width:700px;}
+  .page-title{font-family:var(--font-head);font-size:22px;font-weight:800;color:var(--text);margin-bottom:6px;}
+  .page-sub{font-size:13px;color:var(--muted);margin-bottom:28px;}
+
+  .setting-section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:20px;overflow:hidden;}
+  .ss-header{padding:16px 20px;border-bottom:1px solid var(--border);}
+  .ss-title{font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--text);}
+  .ss-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+  .ss-body{padding:4px 0;}
+  .setting-row{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);}
+  .setting-row:last-child{border-bottom:none;}
+  .setting-label{font-size:13px;font-weight:500;color:var(--text);}
+  .setting-desc{font-size:11px;color:var(--muted);margin-top:2px;}
+
+  .toggle{position:relative;width:36px;height:20px;flex-shrink:0;}
+  .toggle input{opacity:0;width:0;height:0;position:absolute;}
+  .slider{position:absolute;inset:0;background:var(--bg3);border-radius:10px;border:1px solid var(--border2);cursor:pointer;transition:all 0.2s;}
+  .slider::before{content:'';position:absolute;left:2px;top:2px;width:14px;height:14px;background:var(--muted);border-radius:50%;transition:all 0.2s;}
+  input:checked + .slider{background:rgba(110,231,183,0.2);border-color:rgba(110,231,183,0.4);}
+  input:checked + .slider::before{transform:translateX(16px);background:var(--accent);}
+
+  .setting-input{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:7px 12px;outline:none;width:200px;transition:border-color 0.2s;}
+  .setting-input:focus{border-color:rgba(110,231,183,0.3);}
+  .setting-select{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-body);font-size:12px;padding:7px 12px;outline:none;width:160px;}
+
+  .save-btn{margin-top:24px;background:var(--accent);color:#0a0b0f;border:none;padding:11px 28px;border-radius:var(--radius-sm);font-family:var(--font-head);font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s;}
+  .save-btn:hover{background:#4ade9b;}
+
+  .api-key-row{display:flex;align-items:center;gap:8px;}
+  .reveal-btn{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;padding:6px 10px;cursor:pointer;transition:all 0.15s;font-family:var(--font-head);font-weight:600;}
+  .reveal-btn:hover{color:var(--text);}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo"><div class="logo-dot"></div>PayGentic</div>
+  <nav class="nav-links">
+    <a href="index.html" class="nav-link">Dashboard</a>
+    <a href="suppliers.html" class="nav-link">Suppliers</a>
+    <a href="audit.html" class="nav-link">Audit Trail</a>
+    <a href="approvals.html" class="nav-link">Approvals</a>
+    <a href="settings.html" class="nav-link active">Settings</a>
+  </nav>
+  <div class="status-pill"><div class="status-dot"></div>Agent Active</div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-group">
+      <div class="sidebar-label">Agent</div>
+      <div class="sidebar-item active"><span class="sidebar-icon">⚙</span>General</div>
+      <div class="sidebar-item"><span class="sidebar-icon">💰</span>Spending Limits</div>
+      <div class="sidebar-item"><span class="sidebar-icon">📧</span>Email Config</div>
+    </div>
+    <div class="sidebar-group">
+      <div class="sidebar-label">Integrations</div>
+      <div class="sidebar-item"><span class="sidebar-icon">🔑</span>API Keys</div>
+      <div class="sidebar-item"><span class="sidebar-icon">🔒</span>Escrow</div>
+      <div class="sidebar-item"><span class="sidebar-icon">🔔</span>Notifications</div>
+    </div>
+  </div>
+
+  <div class="settings-content">
+    <div class="page-title">Settings</div>
+    <div class="page-sub">Configure your agent's behavior, spending limits, and integrations</div>
+
+    <div class="setting-section">
+      <div class="ss-header">
+        <div class="ss-title">Agent Behavior</div>
+        <div class="ss-sub">Control how the agent searches and selects suppliers</div>
+      </div>
+      <div class="ss-body">
+        <div class="setting-row">
+          <div><div class="setting-label">Auto-select best supplier</div><div class="setting-desc">Agent automatically picks highest-scored supplier</div></div>
+          <label class="toggle"><input type="checkbox" checked/><span class="slider"></span></label>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Send automatic quote emails</div><div class="setting-desc">Dispatch quote requests via Resend API automatically</div></div>
+          <label class="toggle"><input type="checkbox" checked/><span class="slider"></span></label>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Require GSTIN verification</div><div class="setting-desc">Only show suppliers with valid GSTIN numbers</div></div>
+          <label class="toggle"><input type="checkbox"/><span class="slider"></span></label>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Max suppliers to evaluate</div><div class="setting-desc">Number of suppliers the agent will compare</div></div>
+          <input class="setting-input" value="10" type="number" style="width:80px;"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="setting-section">
+      <div class="ss-header">
+        <div class="ss-title">Spending Limits & Escrow</div>
+        <div class="ss-sub">Financial controls and approval thresholds</div>
+      </div>
+      <div class="ss-body">
+        <div class="setting-row">
+          <div><div class="setting-label">Auto-approve threshold</div><div class="setting-desc">Transactions below this amount are auto-approved</div></div>
+          <input class="setting-input" value="2000" type="number"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Monthly spending limit</div><div class="setting-desc">Agent will pause if this limit is reached</div></div>
+          <input class="setting-input" value="30000" type="number"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Escrow provider</div><div class="setting-desc">Payment partner for fund custody</div></div>
+          <select class="setting-select"><option>Locus Paygentic</option><option>Razorpay Escrow</option><option>Cashfree</option></select>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Auto-refund on rejection</div><div class="setting-desc">Automatically return funds when a payment is rejected</div></div>
+          <label class="toggle"><input type="checkbox" checked/><span class="slider"></span></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="setting-section">
+      <div class="ss-header">
+        <div class="ss-title">API Keys</div>
+        <div class="ss-sub">External service credentials — stored encrypted at rest</div>
+      </div>
+      <div class="ss-body">
+        <div class="setting-row">
+          <div><div class="setting-label">Exa API Key</div><div class="setting-desc">Supplier search and discovery</div></div>
+          <div class="api-key-row">
+            <input class="setting-input" type="password" value="exa_live_••••••••••••" id="exaKey"/>
+            <button class="reveal-btn" onclick="toggleKey('exaKey')">Show</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Resend API Key</div><div class="setting-desc">Email automation for quote requests</div></div>
+          <div class="api-key-row">
+            <input class="setting-input" type="password" value="re_live_••••••••••••" id="resendKey"/>
+            <button class="reveal-btn" onclick="toggleKey('resendKey')">Show</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Apollo API Key</div><div class="setting-desc">Company enrichment and verification</div></div>
+          <div class="api-key-row">
+            <input class="setting-input" type="password" value="apo_••••••••••••" id="apolloKey"/>
+            <button class="reveal-btn" onclick="toggleKey('apolloKey')">Show</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Firecrawl API Key</div><div class="setting-desc">Web scraping for supplier data</div></div>
+          <div class="api-key-row">
+            <input class="setting-input" type="password" value="fc_••••••••••••" id="fcKey"/>
+            <button class="reveal-btn" onclick="toggleKey('fcKey')">Show</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="save-btn" onclick="save()">Save Settings</button>
+  </div>
+</div>
+
+<script>
+function toggleKey(id) {
+  const inp = document.getElementById(id);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+function save() {
+  const btn = document.querySelector('.save-btn');
+  btn.textContent = '✓ Saved';
+  btn.style.background = 'var(--green)';
+  setTimeout(() => { btn.textContent = 'Save Settings'; btn.style.background = ''; }, 2000);
+}
+</script>
+</body>
+</html>
