@@ -7,464 +7,616 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
-  :root {
-    --bg: #0a0b0f;
-    --bg2: #111318;
-    --bg3: #181b22;
-    --border: rgba(255,255,255,0.07);
-    --border2: rgba(255,255,255,0.13);
-    --text: #e8eaf0;
-    --muted: #7a8099;
-    --accent: #6ee7b7;
-    --accent2: #38bdf8;
-    --amber: #fbbf24;
-    --coral: #f87171;
-    --purple: #a78bfa;
-    --green: #4ade80;
-    --font-head: 'Syne', sans-serif;
-    --font-body: 'Manrope', sans-serif;
-    --font-mono: 'IBM Plex Mono', monospace;
-    --radius: 12px;
-    --radius-sm: 8px;
-  }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-body);
-    font-size: 14px;
-    line-height: 1.6;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
+/* ═══════════════════════════════════════
+   TOKENS
+═══════════════════════════════════════ */
+:root {
+  --bg:  #090b0f;
+  --bg2: #0f1117;
+  --bg3: #161921;
+  --bg4: #1c2030;
+  --border:  rgba(255,255,255,0.055);
+  --border2: rgba(255,255,255,0.10);
+  --border3: rgba(255,255,255,0.16);
+  --text:  #dde1ed;
+  --text2: #adb5cc;
+  --muted: #636b85;
+  --accent:  #5eead4;
+  --accent2: #38bdf8;
+  --amber:  #f59e0b;
+  --coral:  #f87171;
+  --purple: #a78bfa;
+  --green:  #34d399;
+  --font-head: 'Syne', sans-serif;
+  --font-body: 'Manrope', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --r: 12px; --rs: 8px; --r2: 16px;
+}
 
-  /* ── Top Bar ── */
-  .topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 24px;
-    height: 56px;
-    background: var(--bg2);
-    border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-  .logo {
-    font-family: var(--font-head);
-    font-size: 18px;
-    font-weight: 800;
-    letter-spacing: -0.5px;
-    color: var(--accent);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .logo-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.7)} }
-  .nav-links { display: flex; gap: 4px; }
-  .nav-link {
-    font-family: var(--font-head);
-    font-size: 12px;
-    font-weight: 600;
-    text-decoration: none;
-    color: var(--muted);
-    padding: 6px 14px;
-    border-radius: var(--radius-sm);
-    transition: all 0.15s;
-    letter-spacing: 0.3px;
-  }
-  .nav-link:hover { color: var(--text); background: var(--bg3); }
-  .nav-link.active { color: var(--accent); background: rgba(110,231,183,0.08); }
-  .topbar-right { display: flex; align-items: center; gap: 12px; }
-  .status-pill {
-    display: flex; align-items: center; gap: 6px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--accent);
-    background: rgba(110,231,183,0.08);
-    border: 1px solid rgba(110,231,183,0.2);
-    border-radius: 20px;
-    padding: 4px 12px;
-  }
-  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.5s infinite; }
+/* ═══════════════════════════════════════
+   RESET
+═══════════════════════════════════════ */
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
 
-  /* ── Main Layout ── */
-  .main { display: grid; grid-template-columns: 300px 1fr 300px; height: calc(100vh - 56px); overflow: hidden; }
+/* ═══════════════════════════════════════
+   SCROLLBARS
+═══════════════════════════════════════ */
+* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.09) transparent; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.09); border-radius: 3px; transition: background 0.2s; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
-  /* ── Panels ── */
-  .panel { display: flex; flex-direction: column; border-right: 1px solid var(--border); overflow: hidden; }
-  .panel:last-child { border-right: none; border-left: 1px solid var(--border); }
-  .panel-header {
-    padding: 16px 20px 14px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .panel-title {
-    font-family: var(--font-head);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 4px;
-  }
-  .panel-subtitle { font-size: 12px; color: var(--muted); }
-  .panel-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
-  .panel-body::-webkit-scrollbar { width: 4px; }
-  .panel-body::-webkit-scrollbar-track { background: transparent; }
-  .panel-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+/* ═══════════════════════════════════════
+   PAGE ENTRANCE
+═══════════════════════════════════════ */
+@keyframes pageIn { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+.topbar    { animation: pageIn 0.45s ease both; }
+.panel     { animation: pageIn 0.5s ease both; }
+.panel:nth-child(1)  { animation-delay: 0.05s; }
+.center-panel        { animation: pageIn 0.5s ease 0.09s both; }
+.panel:last-child    { animation-delay: 0.13s; }
 
-  /* ── Request Input ── */
-  .request-box {
-    background: var(--bg2);
-    border-bottom: 1px solid var(--border);
-    padding: 16px 20px;
-    flex-shrink: 0;
-  }
-  .request-input {
-    width: 100%;
-    background: var(--bg3);
-    border: 1px solid var(--border2);
-    border-radius: var(--radius-sm);
-    color: var(--text);
-    font-family: var(--font-body);
-    font-size: 13px;
-    padding: 10px 14px;
-    resize: none;
-    outline: none;
-    transition: border-color 0.2s;
-    min-height: 72px;
-  }
-  .request-input:focus { border-color: rgba(110,231,183,0.4); }
-  .request-input::placeholder { color: var(--muted); }
-  .request-btn {
-    margin-top: 10px;
-    width: 100%;
-    background: var(--accent);
-    color: #0a0b0f;
-    border: none;
-    border-radius: var(--radius-sm);
-    font-family: var(--font-head);
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    padding: 10px;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .request-btn:hover { background: #4ade9b; transform: translateY(-1px); }
-  .request-btn:active { transform: translateY(0); }
-  .request-btn:disabled { background: var(--border2); color: var(--muted); cursor: not-allowed; transform: none; }
+/* ═══════════════════════════════════════
+   TOPBAR
+═══════════════════════════════════════ */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px; height: 54px;
+  background: rgba(15,17,23,0.94);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 200;
+}
+.logo {
+  font-family: var(--font-head); font-size: 17px; font-weight: 800;
+  letter-spacing: -0.5px; color: var(--accent);
+  display: flex; align-items: center; gap: 9px;
+  text-decoration: none;
+}
+.logo-mark {
+  width: 28px; height: 28px; border-radius: 7px;
+  background: rgba(94,234,212,0.08);
+  border: 1px solid rgba(94,234,212,0.22);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; position: relative;
+}
+.logo-mark::before {
+  content: ''; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  animation: logoPulse 2.4s ease-in-out infinite;
+}
+@keyframes logoPulse {
+  0%,100% { opacity:1; transform:scale(1); box-shadow:0 0 6px var(--accent); }
+  50%      { opacity:0.55; transform:scale(0.68); box-shadow:0 0 16px var(--accent); }
+}
+.nav-links { display: flex; gap: 2px; }
+.nav-link {
+  font-family: var(--font-head); font-size: 12px; font-weight: 600;
+  text-decoration: none; color: var(--muted);
+  padding: 6px 13px; border-radius: var(--rs);
+  transition: color 0.18s, background 0.18s, transform 0.15s;
+  letter-spacing: 0.2px; position: relative;
+}
+.nav-link::after {
+  content: ''; position: absolute;
+  bottom: 3px; left: 50%; transform: translateX(-50%) scaleX(0);
+  width: calc(100% - 22px); height: 1.5px;
+  background: var(--accent); border-radius: 1px;
+  transition: transform 0.22s ease;
+}
+.nav-link:hover { color: var(--text); background: var(--bg3); transform: translateY(-1px); }
+.nav-link:hover::after { transform: translateX(-50%) scaleX(0.45); }
+.nav-link.active { color: var(--accent); background: rgba(94,234,212,0.07); }
+.nav-link.active::after { transform: translateX(-50%) scaleX(1); }
+.topbar-right { display: flex; align-items: center; }
+.status-pill {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--accent); background: rgba(94,234,212,0.07);
+  border: 1px solid rgba(94,234,212,0.18); border-radius: 20px;
+  padding: 5px 13px; transition: all 0.3s; letter-spacing: 0.2px;
+}
+.status-pill.running {
+  color: var(--amber); background: rgba(245,158,11,0.07);
+  border-color: rgba(245,158,11,0.22);
+  animation: pillGlow 2s ease-in-out infinite;
+}
+@keyframes pillGlow {
+  0%,100% { box-shadow: 0 0 0 0 transparent; }
+  50%      { box-shadow: 0 0 0 4px rgba(245,158,11,0.07); }
+}
+.status-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+  animation: dotPulse 2s ease-in-out infinite;
+}
+.status-pill.running .status-dot { background: var(--amber); animation-duration: 1s; }
+@keyframes dotPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.6)} }
 
-  /* ── Agent Log Entries ── */
-  .log-entry {
-    display: flex;
-    gap: 10px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
-    animation: fadeIn 0.3s ease;
-  }
-  .log-entry:last-child { border-bottom: none; }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-  .log-icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    flex-shrink: 0;
-    margin-top: 2px;
-  }
-  .log-icon.search { background: rgba(56,189,248,0.12); }
-  .log-icon.enrich { background: rgba(167,139,250,0.12); }
-  .log-icon.email { background: rgba(251,191,36,0.12); }
-  .log-icon.escrow { background: rgba(110,231,183,0.12); }
-  .log-icon.warn { background: rgba(248,113,113,0.12); }
-  .log-icon.ok { background: rgba(74,222,128,0.12); }
-  .log-text { flex: 1; }
-  .log-action { font-weight: 600; font-size: 12px; color: var(--text); }
-  .log-detail { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .log-time { font-family: var(--font-mono); font-size: 10px; color: var(--muted); flex-shrink: 0; margin-top: 4px; }
+/* ═══════════════════════════════════════
+   LAYOUT
+═══════════════════════════════════════ */
+.main {
+  display: grid; grid-template-columns: 296px 1fr 296px;
+  height: calc(100vh - 54px); overflow: hidden;
+}
+.panel {
+  display: flex; flex-direction: column;
+  border-right: 1px solid var(--border);
+  overflow: hidden; min-height: 0;
+}
+.panel:last-child { border-right: none; border-left: 1px solid var(--border); }
+.panel-header {
+  padding: 14px 18px 13px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0; background: rgba(15,17,23,0.55);
+  backdrop-filter: blur(8px);
+}
+.panel-title {
+  font-family: var(--font-head); font-size: 10px; font-weight: 700;
+  letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted); margin-bottom: 3px;
+}
+.panel-subtitle { font-size: 11.5px; color: var(--muted); }
+.panel-body {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 14px 18px; min-height: 0;
+}
 
-  .step-indicator {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 14px;
-    background: rgba(110,231,183,0.06);
-    border: 1px solid rgba(110,231,183,0.15);
-    border-radius: var(--radius-sm);
-    margin-bottom: 14px;
-  }
-  .step-spinner {
-    width: 14px; height: 14px;
-    border: 2px solid rgba(110,231,183,0.2);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .step-text { font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
+/* ═══════════════════════════════════════
+   REQUEST BOX
+═══════════════════════════════════════ */
+.request-box {
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  padding: 14px 18px; flex-shrink: 0;
+}
+.request-label {
+  font-family: var(--font-head); font-size: 10px; font-weight: 700;
+  letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+}
+.request-input {
+  width: 100%; background: var(--bg3);
+  border: 1px solid var(--border2); border-radius: var(--rs);
+  color: var(--text); font-family: var(--font-body); font-size: 12.5px;
+  padding: 10px 13px; resize: none; outline: none; line-height: 1.55;
+  transition: border-color 0.22s, box-shadow 0.22s; min-height: 68px;
+}
+.request-input:focus {
+  border-color: rgba(94,234,212,0.35);
+  box-shadow: 0 0 0 3px rgba(94,234,212,0.06);
+}
+.request-input::placeholder { color: var(--muted); }
+.request-btn {
+  margin-top: 9px; width: 100%; background: var(--accent);
+  color: #071410; border: none; border-radius: var(--rs);
+  font-family: var(--font-head); font-size: 12px; font-weight: 700;
+  letter-spacing: 0.5px; padding: 10px; cursor: pointer; position: relative; overflow: hidden;
+  transition: background 0.17s, transform 0.14s, box-shadow 0.17s;
+}
+.request-btn::after {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.22) 0%, transparent 70%);
+  opacity: 0; transition: opacity 0.18s;
+}
+.request-btn:hover { background: #4dd9c2; transform: translateY(-2px); box-shadow: 0 6px 22px rgba(94,234,212,0.2); }
+.request-btn:hover::after { opacity: 1; }
+.request-btn:active { transform: translateY(0) scale(0.98); box-shadow: none; }
+.request-btn:disabled { background: var(--bg4); color: var(--muted); cursor: not-allowed; transform: none; box-shadow: none; }
 
-  /* ── Supplier Cards ── */
-  .center-panel { display: flex; flex-direction: column; background: var(--bg); }
-  .center-panel .panel-header { background: var(--bg2); }
-  .supplier-grid { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; flex: 1; }
-  .supplier-grid::-webkit-scrollbar { width: 4px; }
-  .supplier-grid::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+/* ═══════════════════════════════════════
+   STEP INDICATOR
+═══════════════════════════════════════ */
+.step-indicator {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 13px;
+  background: rgba(94,234,212,0.04); border: 1px solid rgba(94,234,212,0.12);
+  border-radius: var(--rs); margin-bottom: 12px;
+  animation: slideDown 0.3s cubic-bezier(0.22,1,0.36,1);
+}
+@keyframes slideDown { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+.step-spinner {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(94,234,212,0.16); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 0.75s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.step-text { font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
 
-  .supplier-card {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px;
-    transition: border-color 0.2s, transform 0.15s;
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-  }
-  .supplier-card:hover { border-color: var(--border2); transform: translateY(-1px); }
-  .supplier-card.recommended { border-color: rgba(110,231,183,0.3); }
-  .supplier-card.recommended::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 2px;
-    background: linear-gradient(90deg, var(--accent), var(--accent2));
-  }
+/* ═══════════════════════════════════════
+   LOG ENTRIES
+═══════════════════════════════════════ */
+@keyframes logIn { from { opacity:0; transform:translateY(9px); } to { opacity:1; transform:none; } }
+.log-entry {
+  display: flex; gap: 10px; padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  animation: logIn 0.32s cubic-bezier(0.22,1,0.36,1) both;
+}
+.log-entry:last-child { border-bottom: none; }
+.log-icon {
+  width: 30px; height: 30px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 1px; transition: transform 0.2s;
+}
+.log-entry:hover .log-icon { transform: scale(1.1); }
+.log-icon.search { background: rgba(56,189,248,0.09);  color: var(--accent2); }
+.log-icon.enrich { background: rgba(167,139,250,0.09); color: var(--purple); }
+.log-icon.email  { background: rgba(245,158,11,0.09);  color: var(--amber); }
+.log-icon.escrow { background: rgba(94,234,212,0.09);  color: var(--accent); }
+.log-icon.warn   { background: rgba(248,113,113,0.09); color: var(--coral); }
+.log-icon.ok     { background: rgba(52,211,153,0.09);  color: var(--green); }
+.log-text { flex: 1; min-width: 0; }
+.log-action { font-weight: 600; font-size: 12px; color: var(--text); }
+.log-detail { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+.log-time { font-family: var(--font-mono); font-size: 10px; color: var(--muted); flex-shrink: 0; padding-top: 4px; }
 
-  .card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
-  .card-company { font-family: var(--font-head); font-size: 15px; font-weight: 700; color: var(--text); }
-  .card-location { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .score-badge {
-    font-family: var(--font-mono);
-    font-size: 16px;
-    font-weight: 500;
-    color: var(--accent);
-    background: rgba(110,231,183,0.08);
-    border: 1px solid rgba(110,231,183,0.2);
-    border-radius: 8px;
-    padding: 4px 10px;
-    line-height: 1;
-  }
+/* ═══════════════════════════════════════
+   EMPTY STATE
+═══════════════════════════════════════ */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100%; gap: 12px; padding: 40px 20px;
+}
+.empty-icon {
+  width: 48px; height: 48px; border-radius: 12px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted); opacity: 0.6;
+}
+.empty-text { font-size: 12px; text-align: center; color: var(--muted); line-height: 1.5; max-width: 200px; }
 
-  .card-metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-  .metric { background: var(--bg3); border-radius: var(--radius-sm); padding: 8px 10px; }
-  .metric-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
-  .metric-value { font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--text); }
+/* ═══════════════════════════════════════
+   CENTER PANEL
+═══════════════════════════════════════ */
+.center-panel { display: flex; flex-direction: column; background: var(--bg); min-height: 0; overflow: hidden; }
+.center-panel .panel-header { background: rgba(9,11,15,0.65); }
+.supplier-grid {
+  padding: 14px 18px; display: flex; flex-direction: column;
+  gap: 10px; overflow-y: auto; overflow-x: hidden; flex: 1; min-height: 0;
+}
 
-  .card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-  .tag {
-    font-size: 10px;
-    font-weight: 600;
-    padding: 3px 8px;
-    border-radius: 4px;
-    letter-spacing: 0.3px;
-  }
-  .tag-verified { background: rgba(74,222,128,0.1); color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
-  .tag-recommended { background: rgba(110,231,183,0.1); color: var(--accent); border: 1px solid rgba(110,231,183,0.25); }
-  .tag-gstin { background: rgba(56,189,248,0.1); color: var(--accent2); border: 1px solid rgba(56,189,248,0.2); font-family: var(--font-mono); font-size: 9px; }
+/* ── Shimmer ── */
+@keyframes shimmer {
+  0%   { background-position: -700px 0; }
+  100% { background-position: 700px 0; }
+}
+.skeleton-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 16px;
+  animation: cardIn 0.38s ease both;
+}
+.skeleton-line {
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg3) 0%, var(--bg4) 46%, var(--bg3) 100%);
+  background-size: 700px 100%;
+  animation: shimmer 1.7s linear infinite;
+}
+.skel-top  { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; }
+.skel-title { width:55%; height:14px; }
+.skel-badge { width:40px; height:34px; border-radius:7px; }
+.skel-row  { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:12px; }
+.skel-metric { height:54px; border-radius:7px; }
+.skel-tags { display:flex; gap:6px; margin-bottom:13px; }
+.skel-tag  { height:21px; border-radius:4px; }
+.skel-btns { display:grid; grid-template-columns:1fr 1fr 1fr; gap:7px; }
+.skel-btn  { height:34px; border-radius:7px; }
 
-  .card-actions { display: flex; gap: 8px; }
-  .btn {
-    flex: 1;
-    padding: 8px;
-    border-radius: var(--radius-sm);
-    font-family: var(--font-head);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-    border: none;
-    cursor: pointer;
-    transition: all 0.15s;
-    text-align: center;
-  }
-  .btn-ghost { background: var(--bg3); color: var(--muted); border: 1px solid var(--border); }
-  .btn-ghost:hover { color: var(--text); border-color: var(--border2); }
-  .btn-outline { background: transparent; color: var(--accent2); border: 1px solid rgba(56,189,248,0.3); }
-  .btn-outline:hover { background: rgba(56,189,248,0.08); }
-  .btn-primary { background: var(--accent); color: #0a0b0f; }
-  .btn-primary:hover { background: #4ade9b; }
+/* ── Supplier Card ── */
+@keyframes cardIn { from { opacity:0; transform:translateY(13px); } to { opacity:1; transform:none; } }
 
-  /* ── Audit / Financial Panel ── */
-  .wallet-card {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px;
-    margin-bottom: 14px;
-  }
-  .wallet-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-  .wallet-balance { font-family: var(--font-head); font-size: 26px; font-weight: 800; color: var(--accent); line-height: 1; }
-  .wallet-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.supplier-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 16px;
+  transition: border-color 0.22s, transform 0.22s, box-shadow 0.22s;
+  cursor: pointer; position: relative; overflow: hidden;
+  animation: cardIn 0.42s cubic-bezier(0.22,1,0.36,1) both;
+}
+.supplier-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse 60% 36% at 50% 0%, rgba(94,234,212,0.04) 0%, transparent 70%);
+  opacity: 0; transition: opacity 0.28s; pointer-events: none;
+}
+.supplier-card:hover {
+  border-color: rgba(255,255,255,0.12); transform: translateY(-3px);
+  box-shadow: 0 14px 44px rgba(0,0,0,0.32), 0 1px 0 rgba(255,255,255,0.04) inset;
+}
+.supplier-card:hover::before { opacity: 1; }
 
-  .spend-bar-wrap { margin: 14px 0; }
-  .spend-bar-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 6px; }
-  .spend-bar-track { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; }
-  .spend-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent2), var(--accent)); transition: width 0.6s ease; }
+.supplier-card.recommended { border-color: rgba(94,234,212,0.2); }
+.supplier-card.recommended::after {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--accent) 30%, var(--accent2) 70%, transparent 100%);
+  animation: shimmerLine 3s linear infinite;
+  background-size: 200% 100%;
+}
+@keyframes shimmerLine { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.supplier-card.recommended:hover {
+  border-color: rgba(94,234,212,0.32);
+  box-shadow: 0 14px 44px rgba(0,0,0,0.3), 0 0 0 1px rgba(94,234,212,0.07), 0 0 28px rgba(94,234,212,0.05);
+}
 
-  .escrow-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
-    font-size: 12px;
-  }
-  .escrow-row:last-child { border-bottom: none; }
-  .escrow-key { color: var(--muted); }
-  .escrow-val { font-family: var(--font-mono); font-weight: 500; }
+.card-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:13px; }
+.card-company { font-family:var(--font-head); font-size:14px; font-weight:700; color:var(--text); letter-spacing:-0.2px; margin-bottom:3px; }
+.card-location { font-size:11px; color:var(--muted); display:flex; align-items:center; gap:4px; }
+.score-badge {
+  font-family:var(--font-mono); font-size:15px; font-weight:500;
+  color:var(--accent); background:rgba(94,234,212,0.07);
+  border:1px solid rgba(94,234,212,0.17); border-radius:8px;
+  padding:4px 10px; line-height:1; min-width:44px; text-align:center;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.3s;
+}
+.supplier-card.recommended .score-badge { animation: scorePulse 3s ease-in-out infinite; }
+@keyframes scorePulse { 0%,100%{box-shadow:0 0 0 0 transparent} 50%{box-shadow:0 0 0 4px rgba(94,234,212,0.09)} }
 
-  .status-badge {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 500;
-    padding: 3px 9px;
-    border-radius: 4px;
-    letter-spacing: 0.3px;
-  }
-  .s-pending { background: rgba(251,191,36,0.12); color: var(--amber); border: 1px solid rgba(251,191,36,0.25); }
-  .s-approved { background: rgba(74,222,128,0.1); color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
-  .s-locked { background: rgba(167,139,250,0.1); color: var(--purple); border: 1px solid rgba(167,139,250,0.2); }
-  .s-blocked { background: rgba(248,113,113,0.1); color: var(--coral); border: 1px solid rgba(248,113,113,0.2); }
-  .s-released { background: rgba(110,231,183,0.1); color: var(--accent); border: 1px solid rgba(110,231,183,0.2); }
-  .s-refunded { background: rgba(56,189,248,0.1); color: var(--accent2); border: 1px solid rgba(56,189,248,0.2); }
+.card-metrics { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:12px; }
+.metric {
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:7px; padding:8px 10px; transition:border-color 0.2s;
+}
+.supplier-card:hover .metric { border-color: var(--border2); }
+.metric-label { font-size:9.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:4px; }
+.metric-value { font-family:var(--font-mono); font-size:13px; font-weight:500; color:var(--text); }
+.metric-value.hi { color:var(--accent); }
 
-  .audit-timeline { margin-top: 14px; }
-  .audit-item {
-    display: flex;
-    gap: 10px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
-    animation: fadeIn 0.3s ease;
-  }
-  .audit-item:last-child { border-bottom: none; }
-  .audit-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin-top: 5px;
-    flex-shrink: 0;
-  }
-  .audit-info { flex: 1; }
-  .audit-action { font-size: 12px; font-weight: 600; color: var(--text); }
-  .audit-detail { font-size: 11px; color: var(--muted); margin-top: 1px; }
-  .audit-time { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
+.card-meta { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:13px; }
+.tag {
+  font-size:10px; font-weight:600; padding:3px 8px; border-radius:4px;
+  letter-spacing:0.2px; transition:transform 0.15s;
+}
+.tag:hover { transform:scale(1.05); }
+.tag-verified    { background:rgba(52,211,153,0.08); color:var(--green);  border:1px solid rgba(52,211,153,0.18); }
+.tag-recommended { background:rgba(94,234,212,0.08); color:var(--accent); border:1px solid rgba(94,234,212,0.2); }
+.tag-gstin       { background:rgba(56,189,248,0.07); color:var(--accent2);border:1px solid rgba(56,189,248,0.17); font-family:var(--font-mono); font-size:9px; }
 
-  /* ── Approval Modal ── */
-  .approval-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.7);
-    z-index: 200;
-    align-items: center;
-    justify-content: center;
-  }
-  .approval-overlay.show { display: flex; }
-  .approval-modal {
-    background: var(--bg2);
-    border: 1px solid var(--border2);
-    border-radius: 16px;
-    padding: 28px;
-    width: 440px;
-    animation: slideUp 0.25s ease;
-  }
-  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
-  .approval-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-  .approval-icon {
-    width: 42px; height: 42px;
-    background: rgba(251,191,36,0.12);
-    border: 1px solid rgba(251,191,36,0.25);
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px;
-  }
-  .approval-title { font-family: var(--font-head); font-size: 17px; font-weight: 700; }
-  .approval-sub { font-size: 12px; color: var(--muted); }
-  .approval-details { background: var(--bg3); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 20px; }
-  .approval-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; }
-  .approval-row:not(:last-child) { border-bottom: 1px solid var(--border); }
-  .approval-row span:first-child { color: var(--muted); }
-  .approval-row span:last-child { font-family: var(--font-mono); font-weight: 500; }
-  .approval-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .approval-reject { background: rgba(248,113,113,0.1); color: var(--coral); border: 1px solid rgba(248,113,113,0.25); padding: 11px; border-radius: var(--radius-sm); cursor: pointer; font-family: var(--font-head); font-size: 13px; font-weight: 700; transition: all 0.15s; }
-  .approval-reject:hover { background: rgba(248,113,113,0.2); }
-  .approval-approve { background: var(--accent); color: #0a0b0f; border: none; padding: 11px; border-radius: var(--radius-sm); cursor: pointer; font-family: var(--font-head); font-size: 13px; font-weight: 700; transition: all 0.15s; }
-  .approval-approve:hover { background: #4ade9b; }
+.card-actions { display:flex; gap:7px; flex-wrap:wrap; }
+.btn {
+  flex:1; min-width:68px; padding:8px 10px; border-radius:var(--rs);
+  font-family:var(--font-head); font-size:11px; font-weight:700;
+  letter-spacing:0.3px; border:none; cursor:pointer;
+  transition:background 0.17s, color 0.17s, transform 0.13s, box-shadow 0.17s;
+  text-align:center; position:relative; overflow:hidden;
+}
+.btn:active { transform:scale(0.96) !important; }
+.btn-ghost   { background:var(--bg3); color:var(--muted); border:1px solid var(--border); }
+.btn-ghost:hover { color:var(--text); border-color:var(--border2); background:var(--bg4); transform:translateY(-1px); }
+.btn-outline { background:transparent; color:var(--accent2); border:1px solid rgba(56,189,248,0.24); }
+.btn-outline:hover { background:rgba(56,189,248,0.07); border-color:rgba(56,189,248,0.38); transform:translateY(-1px); }
+.btn-primary { background:var(--accent); color:#071410; }
+.btn-primary:hover { background:#4dd9c2; transform:translateY(-1px); box-shadow:0 4px 16px rgba(94,234,212,0.22); }
 
-  /* ── Proof Upload ── */
-  .proof-section {
-    background: var(--bg3);
-    border: 1px dashed var(--border2);
-    border-radius: var(--radius);
-    padding: 14px;
-    text-align: center;
-    margin-top: 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .proof-section:hover { border-color: var(--accent); background: rgba(110,231,183,0.04); }
-  .proof-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+/* ═══════════════════════════════════════
+   RIGHT PANEL
+═══════════════════════════════════════ */
+.wallet-card {
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:var(--r); padding:16px; margin-bottom:13px;
+  transition:border-color 0.22s, box-shadow 0.22s;
+}
+.wallet-card:hover { border-color:var(--border2); }
+.wallet-label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:5px; font-family:var(--font-head); font-weight:700; }
+.wallet-balance { font-family:var(--font-head); font-size:24px; font-weight:800; color:var(--accent); line-height:1; letter-spacing:-0.5px; transition:all 0.4s; }
+.wallet-sub { font-size:11px; color:var(--muted); margin-top:4px; }
 
-  /* ── Empty state ── */
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    gap: 12px;
-    color: var(--muted);
-  }
-  .empty-icon { font-size: 32px; opacity: 0.4; }
-  .empty-text { font-size: 13px; text-align: center; }
+.spend-bar-wrap { margin-top:13px; }
+.spend-bar-label { display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:7px; }
+.spend-bar-track { height:5px; background:var(--bg); border-radius:3px; overflow:hidden; position:relative; }
+.spend-bar-fill {
+  height:100%; border-radius:3px; width:0%;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+  transition: width 0.9s cubic-bezier(0.22,1,0.36,1);
+  position:relative;
+}
+.spend-bar-fill.active::after {
+  content:''; position:absolute; right:-1px; top:50%;
+  width:9px; height:9px; border-radius:50%; background:var(--accent);
+  transform:translateY(-50%); box-shadow:0 0 8px var(--accent);
+}
 
-  /* Scrollbar for center */
-  .supplier-grid::-webkit-scrollbar { width: 4px; }
-  .supplier-grid::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+.section-label {
+  font-family:var(--font-head); font-size:10px; font-weight:700;
+  letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin:14px 0 8px;
+}
+.section-label:first-child { margin-top:0; }
 
-  .section-label {
-    font-family: var(--font-head);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin: 14px 0 8px;
-  }
-  .section-label:first-child { margin-top: 0; }
+.escrow-card {
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:var(--r); margin-bottom:4px; overflow:hidden;
+  transition:border-color 0.3s, box-shadow 0.5s;
+}
+.escrow-card.locked {
+  border-color:rgba(167,139,250,0.2);
+  animation:escrowGlow 3.5s ease-in-out infinite;
+}
+@keyframes escrowGlow {
+  0%,100% { box-shadow:0 0 0 0 transparent; }
+  50%      { box-shadow:0 0 0 3px rgba(167,139,250,0.07), 0 0 24px rgba(167,139,250,0.04); }
+}
+.escrow-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:10px 14px; border-bottom:1px solid var(--border); font-size:12px;
+}
+.escrow-row:last-child { border-bottom:none; }
+.escrow-key { color:var(--muted); }
+.escrow-val { font-family:var(--font-mono); font-weight:500; font-size:12px; }
+.escrow-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:12px 14px; border-top:1px solid var(--border); }
 
-  .escrow-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
-  .btn-release { background: rgba(110,231,183,0.12); color: var(--accent); border: 1px solid rgba(110,231,183,0.25); padding: 9px; border-radius: var(--radius-sm); cursor: pointer; font-family: var(--font-head); font-size: 11px; font-weight: 700; transition: all 0.15s; }
-  .btn-release:hover { background: rgba(110,231,183,0.2); }
-  .btn-refund { background: rgba(56,189,248,0.1); color: var(--accent2); border: 1px solid rgba(56,189,248,0.2); padding: 9px; border-radius: var(--radius-sm); cursor: pointer; font-family: var(--font-head); font-size: 11px; font-weight: 700; transition: all 0.15s; }
-  .btn-refund:hover { background: rgba(56,189,248,0.18); }
+.btn-release {
+  background:rgba(94,234,212,0.07); color:var(--accent);
+  border:1px solid rgba(94,234,212,0.18); padding:9px;
+  border-radius:var(--rs); cursor:pointer; font-family:var(--font-head);
+  font-size:11px; font-weight:700; transition:all 0.17s;
+  display:flex; align-items:center; justify-content:center; gap:5px;
+}
+.btn-release:hover { background:rgba(94,234,212,0.14); transform:translateY(-1px); box-shadow:0 4px 14px rgba(94,234,212,0.1); }
+.btn-release:active { transform:scale(0.96); }
 
+<<<<<<< HEAD
   .highlight-row { color: var(--amber) !important; }
+=======
+.btn-refund {
+  background:rgba(56,189,248,0.07); color:var(--accent2);
+  border:1px solid rgba(56,189,248,0.17); padding:9px;
+  border-radius:var(--rs); cursor:pointer; font-family:var(--font-head);
+  font-size:11px; font-weight:700; transition:all 0.17s;
+  display:flex; align-items:center; justify-content:center; gap:5px;
+}
+.btn-refund:hover { background:rgba(56,189,248,0.13); transform:translateY(-1px); }
+.btn-refund:active { transform:scale(0.96); }
+
+.status-badge {
+  font-family:var(--font-mono); font-size:10px; font-weight:500;
+  padding:3px 9px; border-radius:5px; letter-spacing:0.3px;
+  display:inline-block; transition:all 0.32s;
+}
+.s-pending  { background:rgba(245,158,11,0.09);  color:var(--amber);  border:1px solid rgba(245,158,11,0.2); animation:badgePulse 2.5s ease-in-out infinite; }
+.s-approved { background:rgba(52,211,153,0.08);  color:var(--green);  border:1px solid rgba(52,211,153,0.18); }
+.s-locked   { background:rgba(167,139,250,0.09); color:var(--purple); border:1px solid rgba(167,139,250,0.2); animation:badgePulse 2.5s ease-in-out infinite; }
+.s-blocked  { background:rgba(248,113,113,0.09); color:var(--coral);  border:1px solid rgba(248,113,113,0.18); }
+.s-released { background:rgba(94,234,212,0.08);  color:var(--accent); border:1px solid rgba(94,234,212,0.18); }
+.s-refunded { background:rgba(56,189,248,0.08);  color:var(--accent2);border:1px solid rgba(56,189,248,0.17); }
+@keyframes badgePulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+/* Proof upload */
+.proof-section {
+  background:transparent; border:1px dashed var(--border2);
+  border-radius:var(--r); padding:16px; text-align:center;
+  margin-top:10px; cursor:pointer; transition:all 0.22s; position:relative; overflow:hidden;
+}
+.proof-section::before {
+  content:''; position:absolute; inset:0;
+  background:radial-gradient(ellipse at center, rgba(94,234,212,0.05) 0%, transparent 70%);
+  opacity:0; transition:opacity 0.3s;
+}
+.proof-section:hover { border-color:rgba(94,234,212,0.28); transform:translateY(-2px); box-shadow:0 6px 24px rgba(0,0,0,0.2); }
+.proof-section:hover::before { opacity:1; }
+.proof-section:active { transform:scale(0.98); }
+.proof-icon {
+  width:36px; height:36px; border-radius:9px;
+  background:rgba(94,234,212,0.07); border:1px solid rgba(94,234,212,0.14);
+  display:flex; align-items:center; justify-content:center; margin:0 auto 8px;
+  color:var(--accent); transition:transform 0.22s;
+}
+.proof-section:hover .proof-icon { transform:scale(1.1) rotate(-5deg); }
+.proof-label { font-size:11.5px; color:var(--muted); line-height:1.4; }
+
+/* Audit timeline */
+.audit-timeline { margin-top:12px; }
+@keyframes auditIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:none} }
+.audit-item {
+  display:flex; gap:0; padding:9px 0;
+  border-bottom:1px solid var(--border);
+  animation:auditIn 0.32s ease both;
+}
+.audit-item:last-child { border-bottom:none; }
+.audit-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:5px; transition:transform 0.2s; }
+.audit-item:hover .audit-dot { transform:scale(1.45); }
+.audit-info { flex:1; min-width:0; margin-left:10px; }
+.audit-action { font-size:12px; font-weight:600; color:var(--text); }
+.audit-detail { font-size:11px; color:var(--muted); margin-top:1px; }
+.audit-time   { font-family:var(--font-mono); font-size:10px; color:var(--muted); margin-top:3px; }
+
+/* ═══════════════════════════════════════
+   APPROVAL MODAL
+═══════════════════════════════════════ */
+.approval-overlay {
+  display:none; position:fixed; inset:0;
+  z-index:300; align-items:center; justify-content:center;
+}
+.approval-overlay.show { display:flex; animation:overlayBg 0.26s ease forwards; }
+@keyframes overlayBg { from{background:rgba(0,0,0,0)} to{background:rgba(0,0,0,0.7)} }
+.approval-overlay.hiding { animation:overlayBgOut 0.22s ease forwards; }
+@keyframes overlayBgOut { from{background:rgba(0,0,0,0.7)} to{background:rgba(0,0,0,0)} }
+
+.approval-modal {
+  background:var(--bg2); border:1px solid var(--border2);
+  border-radius:16px; padding:26px; width:440px; max-width:calc(100vw - 32px);
+  animation:modalIn 0.3s cubic-bezier(0.22,1,0.36,1) both;
+  box-shadow:0 28px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(245,158,11,0.05);
+}
+@keyframes modalIn { from{opacity:0;transform:scale(0.9) translateY(14px)} to{opacity:1;transform:none} }
+.approval-overlay.hiding .approval-modal { animation:modalOut 0.22s ease both; }
+@keyframes modalOut { from{opacity:1;transform:none} to{opacity:0;transform:scale(0.93) translateY(8px)} }
+
+.approval-header { display:flex; align-items:center; gap:14px; margin-bottom:20px; }
+.approval-icon {
+  width:44px; height:44px; background:rgba(245,158,11,0.09);
+  border:1px solid rgba(245,158,11,0.2); border-radius:11px;
+  display:flex; align-items:center; justify-content:center; color:var(--amber); flex-shrink:0;
+  animation:warnGlow 2.2s ease-in-out infinite;
+}
+@keyframes warnGlow { 0%,100%{box-shadow:0 0 0 0 transparent} 50%{box-shadow:0 0 0 5px rgba(245,158,11,0.08)} }
+.approval-title { font-family:var(--font-head); font-size:16px; font-weight:800; letter-spacing:-0.2px; }
+.approval-sub { font-size:12px; color:var(--muted); margin-top:2px; }
+.approval-details { background:var(--bg3); border:1px solid var(--border); border-radius:var(--rs); margin-bottom:18px; overflow:hidden; }
+.approval-row { display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:9px 13px; }
+.approval-row:not(:last-child) { border-bottom:1px solid var(--border); }
+.approval-row span:first-child { color:var(--muted); }
+.approval-row span:last-child { font-family:var(--font-mono); font-weight:500; }
+.highlight-row span:last-child { color:var(--amber); }
+.approval-btns { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.approval-reject {
+  background:rgba(248,113,113,0.07); color:var(--coral);
+  border:1px solid rgba(248,113,113,0.2); padding:11px;
+  border-radius:var(--rs); cursor:pointer; font-family:var(--font-head);
+  font-size:13px; font-weight:700; transition:all 0.17s;
+  display:flex; align-items:center; justify-content:center; gap:6px;
+}
+.approval-reject:hover { background:rgba(248,113,113,0.14); transform:translateY(-1px); }
+.approval-reject:active { transform:scale(0.97); }
+.approval-approve {
+  background:var(--accent); color:#071410; border:none; padding:11px;
+  border-radius:var(--rs); cursor:pointer; font-family:var(--font-head);
+  font-size:13px; font-weight:700; transition:all 0.17s;
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  position:relative; overflow:hidden;
+}
+.approval-approve:hover { background:#4dd9c2; transform:translateY(-1px); box-shadow:0 6px 22px rgba(94,234,212,0.28); }
+.approval-approve:active { transform:scale(0.97); }
+.approval-approve.flash { animation:approveFlash 0.4s ease; }
+@keyframes approveFlash { 0%,100%{background:var(--accent)} 50%{background:#34d399; box-shadow:0 0 0 7px rgba(52,211,153,0.14);} }
+
+/* ═══════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════ */
+@media (max-width:1080px) { .main { grid-template-columns: 250px 1fr 250px; } }
+@media (max-width:860px) {
+  body { overflow:auto; }
+  .main { grid-template-columns:1fr; height:auto; overflow:visible; }
+  .panel, .center-panel { height:60vh; min-height:420px; }
+  .panel:last-child { border-left:none; border-top:1px solid var(--border); }
+  .nav-links { display:none; }
+}
+>>>>>>> b5543c3 (Fix supplier layout, approval status, escrow flow, and settings navigation)
 </style>
 </head>
 <body>
 
-<!-- TOP BAR -->
+<!-- TOPBAR -->
 <div class="topbar">
-  <div class="logo">
-    <div class="logo-dot"></div>
+  <a href="index.html" class="logo">
+    <div class="logo-mark"></div>
     PayGentic
-  </div>
+  </a>
   <nav class="nav-links">
-    <a href="index.html" class="nav-link active">Dashboard</a>
+    <a href="index.html"     class="nav-link active">Dashboard</a>
     <a href="suppliers.html" class="nav-link">Suppliers</a>
-    <a href="audit.html" class="nav-link">Audit Trail</a>
+    <a href="audit.html"     class="nav-link">Audit Trail</a>
     <a href="approvals.html" class="nav-link">Approvals</a>
-    <a href="settings.html" class="nav-link">Settings</a>
+    <a href="settings.html"  class="nav-link">Settings</a>
   </nav>
   <div class="topbar-right">
-    <div class="status-pill">
+    <div class="status-pill" id="globalPill">
       <div class="status-dot"></div>
-      Agent Active
+      <span id="globalStatus">Agent Ready</span>
     </div>
   </div>
 </div>
@@ -475,9 +627,12 @@
   <!-- LEFT: Agent Activity -->
   <div class="panel">
     <div class="request-box">
-      <div class="panel-title" style="margin-bottom:8px;">New Sourcing Request</div>
-      <textarea class="request-input" id="requestInput" placeholder="e.g. Find 1000kg cotton yarn suppliers under ₹300/kg delivered within 5 days in Tamil Nadu"></textarea>
-      <button class="request-btn" id="startBtn" onclick="startAgent()">▶ Start Agent</button>
+      <div class="request-label">New Sourcing Request</div>
+      <textarea class="request-input" id="requestInput"
+        placeholder="e.g. Find 1000kg cotton yarn under ₹300/kg delivered within 5 days in Tamil Nadu"></textarea>
+      <button class="request-btn" id="startBtn" onclick="startAgent()">
+        <span id="startBtnLabel">▶ &nbsp;Start Agent</span>
+      </button>
     </div>
     <div class="panel-header">
       <div class="panel-title">Agent Activity</div>
@@ -485,22 +640,26 @@
     </div>
     <div class="panel-body" id="agentLogs">
       <div class="empty-state">
-        <div class="empty-icon">⚙</div>
-        <div class="empty-text">Agent will stream logs here in real-time</div>
+        <div class="empty-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
+        </div>
+        <div class="empty-text">Agent logs stream here in real-time once started</div>
       </div>
     </div>
   </div>
 
   <!-- CENTER: Suppliers -->
   <div class="center-panel">
-    <div class="panel-header" style="background:var(--bg2);border-bottom:1px solid var(--border);padding:16px 20px 14px;">
+    <div class="panel-header">
       <div class="panel-title">Supplier Results</div>
       <div class="panel-subtitle" id="supplierCount">No suppliers loaded</div>
     </div>
     <div class="supplier-grid" id="supplierGrid">
       <div class="empty-state">
-        <div class="empty-icon">🏭</div>
-        <div class="empty-text">Supplier cards will appear here after agent searches</div>
+        <div class="empty-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+        </div>
+        <div class="empty-text">Supplier cards appear here after the agent searches</div>
       </div>
     </div>
   </div>
@@ -509,9 +668,10 @@
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">Financial Audit Trail</div>
-      <div class="panel-subtitle">Wallet & escrow status</div>
+      <div class="panel-subtitle">Wallet &amp; escrow status</div>
     </div>
     <div class="panel-body" id="auditPanel">
+
       <div class="wallet-card">
         <div class="wallet-label">Wallet Balance</div>
         <div class="wallet-balance" id="walletBalance">₹50,000</div>
@@ -522,15 +682,16 @@
             <span>Limit: ₹30,000</span>
           </div>
           <div class="spend-bar-track">
-            <div class="spend-bar-fill" id="spendBar" style="width:0%"></div>
+            <div class="spend-bar-fill" id="spendBar"></div>
           </div>
         </div>
       </div>
 
       <div class="section-label">Escrow Status</div>
-      <div class="wallet-card" style="padding:12px 16px;">
+
+      <div class="escrow-card" id="escrowCard">
         <div class="escrow-row">
-          <span class="escrow-key">Escrow Amount</span>
+          <span class="escrow-key">Amount</span>
           <span class="escrow-val" id="escrowAmt">₹0</span>
         </div>
         <div class="escrow-row">
@@ -546,13 +707,21 @@
           <span class="status-badge s-pending" id="approvalStatus">Not Required</span>
         </div>
         <div class="escrow-actions">
-          <button class="btn-release" onclick="releaseEscrow()">✓ Release</button>
-          <button class="btn-refund" onclick="refundEscrow()">↩ Refund</button>
+          <button class="btn-release" onclick="releaseEscrow()">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Release
+          </button>
+          <button class="btn-refund" onclick="refundEscrow()">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+            Refund
+          </button>
         </div>
       </div>
 
       <div class="proof-section" onclick="uploadProof()">
-        <div style="font-size:20px;opacity:0.5;">📦</div>
+        <div class="proof-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
         <div class="proof-label">Upload shipment proof to release escrow</div>
       </div>
 
@@ -562,48 +731,50 @@
           <div class="audit-dot" style="background:var(--accent2)"></div>
           <div class="audit-info">
             <div class="audit-action">Wallet initialized</div>
-            <div class="audit-detail">Balance: ₹50,000 • Limit: ₹30,000</div>
+            <div class="audit-detail">Balance: ₹50,000 · Limit: ₹30,000</div>
             <div class="audit-time">Just now</div>
           </div>
         </div>
       </div>
+
     </div>
   </div>
 
-</div>
+</div><!-- /main -->
 
 <!-- APPROVAL MODAL -->
 <div class="approval-overlay" id="approvalOverlay">
   <div class="approval-modal">
     <div class="approval-header">
-      <div class="approval-icon">⚠</div>
+      <div class="approval-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
       <div>
         <div class="approval-title">Human Approval Required</div>
-        <div class="approval-sub">Transaction exceeds spending threshold</div>
+        <div class="approval-sub">Transaction exceeds auto-approve threshold</div>
       </div>
     </div>
-    <div class="approval-details" id="approvalDetails">
-      <div class="approval-row">
-        <span>Supplier</span><span id="modalSupplier">TamilTex Mills</span>
-      </div>
-      <div class="approval-row">
-        <span>Amount</span><span id="modalAmount">₹28,000</span>
-      </div>
-      <div class="approval-row">
-        <span>Quantity</span><span id="modalQty">1000 kg</span>
-      </div>
-      <div class="approval-row highlight-row">
-        <span>Limit Exceeded By</span><span id="modalExcess">₹0</span>
-      </div>
+    <div class="approval-details">
+      <div class="approval-row"><span>Supplier</span><span id="modalSupplier">—</span></div>
+      <div class="approval-row"><span>Amount</span><span id="modalAmount">—</span></div>
+      <div class="approval-row"><span>Quantity</span><span id="modalQty">—</span></div>
+      <div class="approval-row highlight-row"><span>Limit Exceeded By</span><span id="modalExcess">—</span></div>
     </div>
     <div class="approval-btns">
-      <button class="approval-reject" onclick="rejectPayment()">✕ Reject</button>
-      <button class="approval-approve" onclick="approvePayment()">✓ Approve</button>
+      <button class="approval-reject" onclick="rejectPayment()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Reject
+      </button>
+      <button class="approval-approve" id="approveBtn" onclick="approvePayment()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Approve
+      </button>
     </div>
   </div>
 </div>
 
 <script>
+<<<<<<< HEAD
 const API_BASE = localStorage.getItem('paygenticApiBase') || 'http://localhost:8000';
 const WS_BASE = API_BASE.replace(/^http/i, 'ws');
 
@@ -662,27 +833,123 @@ function addLog({ step, action, detail, ts, level }) {
   row.className = 'log-entry';
   row.innerHTML = `
     <div class="log-icon ${meta.cls}">${meta.icon}</div>
+=======
+/* ── SVG Icons ── */
+const ICONS = {
+  search: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
+  enrich: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+  email:  `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`,
+  escrow: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+  warn:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  ok:     `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+};
+const PIN = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
+
+/* ── Data ── */
+const SUPPLIERS = [
+  { id:'sup_001', name:'TamilTex Mills',         location:'Coimbatore', price:280, delivery:4, verified:true,  gstin:'33ABCDE1234F1Z5', email:'sales@tamiltex.com',        score:92, recommended:true  },
+  { id:'sup_002', name:'Bharat Yarn Co.',         location:'Surat',      price:295, delivery:3, verified:true,  gstin:'24FGHIJ5678K2A6', email:'info@bharatyarn.in',         score:87, recommended:false },
+  { id:'sup_003', name:'Nithya Fibres',           location:'Tiruppur',   price:265, delivery:6, verified:false, gstin:'33LMNOP9012L3B7', email:'nithya.fibres@gmail.com',    score:74, recommended:false },
+  { id:'sup_004', name:'Arjun Textiles',          location:'Ahmedabad',  price:310, delivery:3, verified:true,  gstin:'24QRSTU3456M4C8', email:'procurement@arjuntex.com',   score:81, recommended:false },
+  { id:'sup_005', name:'Sri Lakshmi Threads',     location:'Erode',      price:272, delivery:5, verified:true,  gstin:'33VWXYZ7890N5D9', email:'sales@srilakshmi.co.in',     score:89, recommended:false },
+  { id:'sup_006', name:'Horizon Yarn Industries', location:'Mumbai',     price:300, delivery:2, verified:true,  gstin:'27ABCDE2345O6E1', email:'orders@horizonyarn.com',      score:85, recommended:false },
+  { id:'sup_007', name:'Deepika Cotton Works',    location:'Salem',      price:258, delivery:7, verified:false, gstin:'33FGHIJ6789P7F2', email:'deepika.cotton@yahoo.com',    score:68, recommended:false },
+  { id:'sup_008', name:'Megha Fibre Industries',  location:'Ludhiana',   price:285, delivery:5, verified:true,  gstin:'03KLMNO0123Q8G3', email:'megha@mfibre.in',            score:83, recommended:false },
+];
+
+const LOGS = [
+  { type:'search', action:'Parsing sourcing request',        detail:'Extracted: cotton yarn · 1000 kg · ₹300/kg max · 5 days · Tamil Nadu',       time:'0.0s'  },
+  { type:'search', action:'Supplier search via Exa API',     detail:'Query: "cotton yarn supplier India wholesale"',                                 time:'1.2s'  },
+  { type:'search', action:'Firecrawl web scraping',          detail:'Scraped 12 supplier websites — pricing, contact, delivery info',                time:'3.1s'  },
+  { type:'enrich', action:'Enriching supplier data',         detail:'Apollo API — GSTIN validation + company trust scores',                          time:'5.4s'  },
+  { type:'enrich', action:'Ranking suppliers',               detail:'Weighted: price 40% · delivery 30% · verified 20% · score 10%',                 time:'7.2s'  },
+  { type:'email',  action:'Sending quote request emails',    detail:'Resend API — 8 emails dispatched to all ranked suppliers',                       time:'9.1s'  },
+  { type:'ok',     action:'Best supplier selected',          detail:'TamilTex Mills — Score 92 · ₹280/kg · 4-day delivery',                          time:'9.8s'  },
+  { type:'escrow', action:'Creating Locus escrow payment',   detail:'Amount: ₹28,000 for 1000 kg at ₹280/kg',                                        time:'11.2s' },
+  { type:'warn',   action:'Spending limit exceeded',         detail:'₹28,000 exceeds auto-approve threshold ₹2,000 — requesting human approval',      time:'11.5s' },
+];
+
+let state = { running:false, walletBalance:50000, spent:0, escrowAmt:0, selectedSupplier:null };
+const fmt = n => '₹' + n.toLocaleString('en-IN');
+
+/* ── Skeletons ── */
+function showSkeletons(n) {
+  const g = document.getElementById('supplierGrid');
+  g.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const sk = document.createElement('div');
+    sk.className = 'skeleton-card';
+    sk.style.animationDelay = (i * 0.06) + 's';
+    sk.innerHTML = `
+      <div class="skel-top">
+        <div class="skeleton-line skel-title"></div>
+        <div class="skeleton-line skel-badge"></div>
+      </div>
+      <div class="skel-row">
+        <div class="skeleton-line skel-metric"></div>
+        <div class="skeleton-line skel-metric"></div>
+        <div class="skeleton-line skel-metric"></div>
+      </div>
+      <div class="skel-tags">
+        <div class="skeleton-line skel-tag" style="width:60px"></div>
+        <div class="skeleton-line skel-tag" style="width:88px"></div>
+        <div class="skeleton-line skel-tag" style="width:108px"></div>
+      </div>
+      <div class="skel-btns">
+        <div class="skeleton-line skel-btn"></div>
+        <div class="skeleton-line skel-btn"></div>
+        <div class="skeleton-line skel-btn"></div>
+      </div>`;
+    g.appendChild(sk);
+  }
+  document.getElementById('supplierCount').textContent = 'Searching suppliers…';
+}
+
+/* ── Log entry ── */
+function addLog(log) {
+  const c = document.getElementById('agentLogs');
+  if (c.querySelector('.empty-state')) c.innerHTML = '';
+  const el = document.createElement('div');
+  el.className = 'log-entry';
+  el.innerHTML = `
+    <div class="log-icon ${log.type}">${ICONS[log.type]||ICONS.search}</div>
+>>>>>>> b5543c3 (Fix supplier layout, approval status, escrow flow, and settings navigation)
     <div class="log-text">
       <div class="log-action">${action || 'Update'}</div>
       <div class="log-detail">${detail || ''}</div>
     </div>
+<<<<<<< HEAD
     <div class="log-time">${localTime(ts)}</div>
   `;
   container.appendChild(row);
   container.scrollTop = container.scrollHeight;
+=======
+    <div class="log-time">${log.time}</div>`;
+  c.appendChild(el);
+  c.scrollTop = c.scrollHeight;
+>>>>>>> b5543c3 (Fix supplier layout, approval status, escrow flow, and settings navigation)
 }
 
+/* ── Audit entry ── */
 function addAudit(action, detail, color, badge) {
+<<<<<<< HEAD
   const container = document.getElementById('auditTimeline');
   const row = document.createElement('div');
   row.className = 'audit-item';
   row.innerHTML = `
+=======
+  const c = document.getElementById('auditTimeline');
+  const el = document.createElement('div');
+  el.className = 'audit-item';
+  el.innerHTML = `
+>>>>>>> b5543c3 (Fix supplier layout, approval status, escrow flow, and settings navigation)
     <div class="audit-dot" style="background:${color}"></div>
     <div class="audit-info">
       <div class="audit-action">${action}</div>
       <div class="audit-detail">${detail}</div>
       <div class="audit-time">${new Date().toLocaleTimeString()}</div>
     </div>
+<<<<<<< HEAD
     ${badge ? `<span class="status-badge ${badge.cls}">${badge.text}</span>` : ''}
   `;
   container.appendChild(row);
@@ -773,10 +1040,31 @@ function renderSuppliers(rawSuppliers) {
         <div>
           <div class="card-company">${supplier.name}</div>
           <div class="card-location">📍 ${supplier.location}</div>
+=======
+    ${badge ? `<span class="status-badge ${badge.cls}" style="margin-left:auto;flex-shrink:0;">${badge.text}</span>` : ''}`;
+  c.appendChild(el);
+  c.scrollTop = c.scrollHeight;
+}
+
+/* ── Render supplier cards ── */
+function renderSuppliers(suppliers) {
+  const g = document.getElementById('supplierGrid');
+  g.innerHTML = '';
+  suppliers.forEach((s, i) => {
+    const card = document.createElement('div');
+    card.className = 'supplier-card' + (s.recommended ? ' recommended' : '');
+    card.style.animationDelay = (i * 0.07) + 's';
+    card.innerHTML = `
+      <div class="card-top">
+        <div>
+          <div class="card-company">${s.name}</div>
+          <div class="card-location">${PIN} ${s.location}</div>
+>>>>>>> b5543c3 (Fix supplier layout, approval status, escrow flow, and settings navigation)
         </div>
         <div class="score-badge">${supplier.score}</div>
       </div>
       <div class="card-metrics">
+<<<<<<< HEAD
         <div class="metric">
           <div class="metric-label">Price/kg</div>
           <div class="metric-value">${formatINR(supplier.price)}</div>
@@ -789,6 +1077,11 @@ function renderSuppliers(rawSuppliers) {
           <div class="metric-label">Score</div>
           <div class="metric-value">${supplier.score}/100</div>
         </div>
+=======
+        <div class="metric"><div class="metric-label">Price / kg</div><div class="metric-value hi">₹${s.price}</div></div>
+        <div class="metric"><div class="metric-label">Delivery</div><div class="metric-value">${s.delivery}d</div></div>
+        <div class="metric"><div class="metric-label">Score</div><div class="metric-value">${s.score}<span style="font-size:9.5px;color:var(--muted)">/100</span></div></div>
+>>>>>>> b5543c3 (Fix supplier layout, approval status, escrow flow, and settings navigation)
       </div>
       <div class="card-meta">
         ${supplier.verified ? '<span class="tag tag-verified">✓ Verified</span>' : ''}
@@ -796,6 +1089,7 @@ function renderSuppliers(rawSuppliers) {
         <span class="tag tag-gstin">${supplier.gstin || 'GSTIN N/A'}</span>
       </div>
       <div class="card-actions">
+<<<<<<< HEAD
         <button class="btn btn-ghost" onclick="viewSupplier('${supplier.id}')">Details</button>
         <button class="btn btn-outline" onclick="sendQuote('${supplier.id}')">Send Quote</button>
         <button class="btn btn-primary" onclick="selectSupplier('${supplier.id}')">Select</button>
@@ -982,11 +1276,22 @@ function ensureSocket() {
   });
 
   return state.socketPromise;
+=======
+        <button class="btn btn-ghost"   onclick="viewSupplier('${s.id}')">Details</button>
+        <button class="btn btn-outline" onclick="sendQuote('${s.id}')">Send Quote</button>
+        <button class="btn btn-primary" onclick="selectSupplier('${s.id}')">Select</button>
+      </div>`;
+    g.appendChild(card);
+  });
+  document.getElementById('supplierCount').textContent = `${suppliers.length} suppliers found · 1 recommended`;
+>>>>>>> b5543c3 (Fix supplier layout, approval status, escrow flow, and settings navigation)
 }
 
+/* ── Agent pipeline ── */
 async function startAgent() {
   const input = document.getElementById('requestInput').value.trim();
   if (!input || state.running) return;
+<<<<<<< HEAD
 
   parseRequestHints(input);
   clearRunUI();
@@ -1114,13 +1419,140 @@ async function selectSupplier(id) {
   } catch (error) {
     addLog({ step: 'error', action: 'Escrow creation failed', detail: error.message, ts: new Date().toISOString() });
   }
+=======
+  state.running = true;
+
+  const btn = document.getElementById('startBtn');
+  const lbl = document.getElementById('startBtnLabel');
+  btn.disabled = true;
+  lbl.textContent = '⟳  Agent Running…';
+
+  const pill = document.getElementById('globalPill');
+  pill.classList.add('running');
+  document.getElementById('globalStatus').textContent = 'Running';
+  document.getElementById('agentLogs').innerHTML = '';
+  document.getElementById('agentStatus').textContent = 'Running — streaming logs';
+
+  const ind = document.createElement('div');
+  ind.className = 'step-indicator'; ind.id = 'stepIndicator';
+  ind.innerHTML = `<div class="step-spinner"></div><div class="step-text" id="stepText">Initializing agent…</div>`;
+  document.getElementById('agentLogs').appendChild(ind);
+
+  showSkeletons(4);
+
+  for (let i = 0; i < LOGS.length; i++) {
+    await delay(1100 + Math.random() * 500);
+    const st = document.getElementById('stepText');
+    if (st) st.textContent = LOGS[i].action + '…';
+    addLog(LOGS[i]);
+
+    if (i === 4) {
+      await delay(250);
+      renderSuppliers(SUPPLIERS);
+      addAudit('Suppliers loaded', '8 suppliers ranked and scored', 'var(--accent2)', null);
+    }
+    if (i === 6) addAudit('Supplier selected', 'TamilTex Mills — ₹280/kg — Score 92', 'var(--accent)', null);
+    if (i === 7) {
+      state.escrowAmt = 28000;
+      state.selectedSupplier = SUPPLIERS[0];
+      document.getElementById('escrowAmt').textContent = fmt(28000);
+      document.getElementById('escrowSupplier').textContent = 'TamilTex Mills';
+      document.getElementById('escrowStatus').textContent = 'Locked';
+      document.getElementById('escrowStatus').className = 'status-badge s-locked';
+      document.getElementById('escrowCard').classList.add('locked');
+      addAudit('Escrow created', '₹28,000 locked for TamilTex Mills', 'var(--purple)', {cls:'s-locked', text:'Locked'});
+    }
+    if (i === 8) {
+      document.getElementById('approvalStatus').textContent = 'Awaiting Approval';
+      document.getElementById('approvalStatus').className = 'status-badge s-pending';
+      addAudit('Approval required', '₹28,000 exceeds ₹2,000 threshold', 'var(--amber)', {cls:'s-pending', text:'Pending'});
+      await delay(700);
+      showApproval();
+    }
+  }
+
+  document.getElementById('stepIndicator')?.remove();
+  btn.disabled = false; lbl.textContent = '▶  Start Agent';
+  pill.classList.remove('running');
+  document.getElementById('globalStatus').textContent = 'Awaiting Approval';
+  document.getElementById('agentStatus').textContent = 'Completed — awaiting approval';
+  state.running = false;
 }
 
-function viewSupplier(id) {
-  window.location.href = `suppliers.html?id=${id}`;
+/* ── Modal ── */
+function showApproval() {
+  document.getElementById('modalSupplier').textContent = 'TamilTex Mills';
+  document.getElementById('modalAmount').textContent = '₹28,000';
+  document.getElementById('modalQty').textContent = '1000 kg @ ₹280/kg';
+  document.getElementById('modalExcess').textContent = '₹26,000';
+  document.getElementById('approvalOverlay').classList.add('show');
 }
-
+function hideApproval() {
+  const ov = document.getElementById('approvalOverlay');
+  ov.classList.add('hiding');
+  setTimeout(() => ov.classList.remove('show','hiding'), 240);
+}
+function approvePayment() {
+  const btn = document.getElementById('approveBtn');
+  btn.classList.add('flash');
+  setTimeout(() => btn.classList.remove('flash'), 420);
+  setTimeout(() => {
+    hideApproval();
+    state.spent = 28000; state.walletBalance = 22000;
+    document.getElementById('walletBalance').textContent = fmt(state.walletBalance);
+    document.getElementById('spentAmt').textContent = fmt(state.spent);
+    const bar = document.getElementById('spendBar');
+    bar.style.width = ((state.spent / 30000) * 100) + '%';
+    bar.classList.add('active');
+    document.getElementById('approvalStatus').textContent = 'Approved';
+    document.getElementById('approvalStatus').className = 'status-badge s-approved';
+    addLog({ type:'ok', action:'Payment approved by human', detail:'₹28,000 approved — awaiting shipment proof', time:'—' });
+    addAudit('Payment approved', 'Human approved ₹28,000 for TamilTex Mills', 'var(--green)', {cls:'s-approved', text:'Approved'});
+  }, 200);
+}
+function rejectPayment() {
+  hideApproval();
+  document.getElementById('approvalStatus').textContent = 'Rejected';
+  document.getElementById('approvalStatus').className = 'status-badge s-blocked';
+  document.getElementById('escrowStatus').textContent = 'Blocked';
+  document.getElementById('escrowStatus').className = 'status-badge s-blocked';
+  document.getElementById('escrowCard').classList.remove('locked');
+  addLog({ type:'warn', action:'Payment rejected by human', detail:'Escrow blocked — select an alternative supplier', time:'—' });
+  addAudit('Payment rejected', 'Transaction blocked by approver', 'var(--coral)', {cls:'s-blocked', text:'Blocked'});
+}
+function releaseEscrow() {
+  document.getElementById('escrowStatus').textContent = 'Released';
+  document.getElementById('escrowStatus').className = 'status-badge s-released';
+  document.getElementById('escrowCard').classList.remove('locked');
+  addAudit('Escrow released', '₹28,000 released to TamilTex Mills', 'var(--accent)', {cls:'s-released', text:'Released'});
+  addLog({ type:'ok', action:'Escrow released', detail:'Payment sent to TamilTex Mills — procurement complete', time:'—' });
+}
+function refundEscrow() {
+  document.getElementById('escrowStatus').textContent = 'Refunded';
+  document.getElementById('escrowStatus').className = 'status-badge s-refunded';
+  document.getElementById('escrowCard').classList.remove('locked');
+  state.walletBalance = 50000;
+  document.getElementById('walletBalance').textContent = fmt(state.walletBalance);
+  const bar = document.getElementById('spendBar');
+  bar.style.width = '0%'; bar.classList.remove('active');
+  addAudit('Escrow refunded', '₹28,000 returned to wallet', 'var(--accent2)', {cls:'s-refunded', text:'Refunded'});
+  addLog({ type:'escrow', action:'Escrow refunded', detail:'₹28,000 returned to Locus wallet', time:'—' });
+}
+function selectSupplier(id) {
+  const s = SUPPLIERS.find(x => x.id === id);
+  if (!s) return;
+  addLog({ type:'ok', action:`Selected: ${s.name}`, detail:`₹${s.price}/kg · ${s.delivery} days · Score ${s.score}`, time:'—' });
+  addAudit('Supplier selected manually', `${s.name} — ₹${s.price}/kg`, 'var(--accent)', null);
+}
+function sendQuote(id) {
+  const s = SUPPLIERS.find(x => x.id === id);
+  if (!s) return;
+  addLog({ type:'email', action:`Quote sent to ${s.name}`, detail:`→ ${s.email}`, time:'—' });
+>>>>>>> b5543c3 (Fix supplier layout, approval status, escrow flow, and settings navigation)
+}
+function viewSupplier(id) { window.location.href = `suppliers.html?id=${id}`; }
 function uploadProof() {
+<<<<<<< HEAD
   addLog({ step: 'ok', action: 'Shipment proof uploaded', detail: 'Proof marked for escrow release', ts: new Date().toISOString() });
   addAudit('Proof uploaded', 'Shipment document attached', 'var(--accent)', null);
 }
@@ -1154,6 +1586,12 @@ window.addEventListener('beforeunload', () => {
 });
 
 bootstrapDashboard();
+=======
+  addLog({ type:'ok', action:'Shipment proof uploaded', detail:'Document verified — ready to release escrow', time:'—' });
+  addAudit('Proof uploaded', 'Shipment document verified', 'var(--accent)', null);
+}
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+>>>>>>> b5543c3 (Fix supplier layout, approval status, escrow flow, and settings navigation)
 </script>
 </body>
 </html>
