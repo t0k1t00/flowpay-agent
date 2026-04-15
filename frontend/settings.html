@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Settings — PayGentic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root{--bg:#0a0b0f;--bg2:#111318;--bg3:#181b22;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--text:#e8eaf0;--muted:#7a8099;--accent:#6ee7b7;--accent2:#38bdf8;--amber:#fbbf24;--coral:#f87171;--purple:#a78bfa;--green:#4ade80;--font-head:'Syne',sans-serif;--font-body:'Manrope',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:12px;--radius-sm:8px;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:14px;line-height:1.6;}
+  html {scroll-behavior: smooth;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:56px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+  .logo{font-family:var(--font-head);font-size:18px;font-weight:800;letter-spacing:-0.5px;color:var(--accent);display:flex;align-items:center;gap:8px;}
+  .logo-dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}
+  .nav-links{display:flex;gap:4px;}
+  .nav-link{font-family:var(--font-head);font-size:12px;font-weight:600;text-decoration:none;color:var(--muted);padding:6px 14px;border-radius:var(--radius-sm);transition:all 0.15s;letter-spacing:0.3px;}
+  .nav-link:hover{color:var(--text);background:var(--bg3);}
+  .nav-link.active{color:var(--accent);background:rgba(110,231,183,0.08);}
+  .status-pill{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;color:var(--accent);background:rgba(110,231,183,0.08);border:1px solid rgba(110,231,183,0.2);border-radius:20px;padding:4px 12px;}
+  .status-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.5s infinite;}
+
+  .layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 56px);}
+  .sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:20px 0;}
+  .sidebar{position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto;}
+  .sidebar-group{margin-bottom:24px;}
+  .sidebar-label{font-family:var(--font-head);font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);padding:0 20px;margin-bottom:8px;}
+  .sidebar-item{display:flex; align-items:center; gap:10px; padding:9px 20px; font-size:13px; color:var(--muted); cursor:pointer; transition:all 0.15s; text-decoration:none;}
+  .sidebar-item:hover{color:var(--text); background:var(--bg3);}
+
+  .sidebar-item.active{color:var(--accent);background:rgba(110,231,183,0.06);border-right:2px solid var(--accent);}
+  .sidebar-icon{font-size:14px;width:18px;text-align:center;}
+
+  .settings-content{padding:32px 36px;max-width:700px;}
+  .page-title{font-family:var(--font-head);font-size:22px;font-weight:800;color:var(--text);margin-bottom:6px;}
+  .page-sub{font-size:13px;color:var(--muted);margin-bottom:28px;}
+
+  .setting-section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:20px;overflow:hidden;scroll-margin-top: 80px;}
+  .ss-header{padding:16px 20px;border-bottom:1px solid var(--border);}
+  .ss-title{font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--text);}
+  .ss-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+  .ss-body{padding:4px 0;}
+  .setting-row{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);}
+  .setting-row:last-child{border-bottom:none;}
+  .setting-label{font-size:13px;font-weight:500;color:var(--text);}
+  .setting-desc{font-size:11px;color:var(--muted);margin-top:2px;}
+
+  .toggle{position:relative;width:36px;height:20px;flex-shrink:0;}
+  .toggle input{opacity:0;width:0;height:0;position:absolute;}
+  .slider{position:absolute;inset:0;background:var(--bg3);border-radius:10px;border:1px solid var(--border2);cursor:pointer;transition:all 0.2s;}
+  .slider::before{content:'';position:absolute;left:2px;top:2px;width:14px;height:14px;background:var(--muted);border-radius:50%;transition:all 0.2s;}
+  input:checked + .slider{background:rgba(110,231,183,0.2);border-color:rgba(110,231,183,0.4);}
+  input:checked + .slider::before{transform:translateX(16px);background:var(--accent);}
+
+  .setting-input{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:7px 12px;outline:none;width:200px;transition:border-color 0.2s;}
+  .setting-input:focus{border-color:rgba(110,231,183,0.3);}
+  .setting-select{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-body);font-size:12px;padding:7px 12px;outline:none;width:160px;}
+
+  .save-btn{margin-top:24px;background:var(--accent);color:#0a0b0f;border:none;padding:11px 28px;border-radius:var(--radius-sm);font-family:var(--font-head);font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s;}
+  .save-btn:hover{background:#4ade9b;}
+
+  .api-key-row{display:flex;align-items:center;gap:8px;}
+  .reveal-btn{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:11px;padding:6px 10px;cursor:pointer;transition:all 0.15s;font-family:var(--font-head);font-weight:600;}
+  .reveal-btn:hover{color:var(--text);}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo"><div class="logo-dot"></div>PayGentic</div>
+  <nav class="nav-links">
+    <a href="index.html" class="nav-link">Dashboard</a>
+    <a href="suppliers.html" class="nav-link">Suppliers</a>
+    <a href="audit.html" class="nav-link">Audit Trail</a>
+    <a href="approvals.html" class="nav-link">Approvals</a>
+    <a href="settings.html" class="nav-link active">Settings</a>
+  </nav>
+  <div class="status-pill"><div class="status-dot"></div>Agent Active</div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-group">
+      <div class="sidebar-label">Agent</div>
+      <a class="sidebar-item active" href="#general">
+        <span class="sidebar-icon">⚙</span>General
+      </a>
+      <a class="sidebar-item" href="#spending">
+        <span class="sidebar-icon">💰</span>Spending Limits
+      </a>
+      <a class="sidebar-item" href="#email">
+        <span class="sidebar-icon">📧</span>Email Config
+      </a>
+    </div>
+
+    <div class="sidebar-group">
+      <div class="sidebar-label">Integrations</div>
+      <a class="sidebar-item" href="#apikeys">
+        <span class="sidebar-icon">🔑</span>API Keys
+      </a>
+      <a class="sidebar-item" href="#escrow">
+        <span class="sidebar-icon">🔒</span>Escrow
+      </a>
+      <a class="sidebar-item" href="#notifications">
+        <span class="sidebar-icon">🔔</span>Notifications
+      </a>
+    </div>
+  </div>
+
+  <div class="settings-content">
+    <div class="page-title">Settings</div>
+    <div class="page-sub">Configure your agent's behavior, spending limits, and integrations</div>
+
+    <div class="setting-section" id="general">
+      <div class="ss-header">
+        <div class="ss-title">Agent Behavior</div>
+        <div class="ss-sub">Control how the agent searches and selects suppliers</div>
+      </div>
+      <div class="ss-body">
+        <div class="setting-row">
+          <div><div class="setting-label">Auto-select best supplier</div><div class="setting-desc">Agent automatically picks highest-scored supplier</div></div>
+          <label class="toggle"><input type="checkbox" checked/><span class="slider"></span></label>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Send automatic quote emails</div><div class="setting-desc">Dispatch quote requests via Resend API automatically</div></div>
+          <label class="toggle"><input type="checkbox" checked/><span class="slider"></span></label>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Require GSTIN verification</div><div class="setting-desc">Only show suppliers with valid GSTIN numbers</div></div>
+          <label class="toggle"><input type="checkbox"/><span class="slider"></span></label>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Max suppliers to evaluate</div><div class="setting-desc">Number of suppliers the agent will compare</div></div>
+          <input class="setting-input" value="10" type="number" style="width:80px;"/>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="setting-section" id="email">
+      <div class="ss-header">
+        <div class="ss-title">Email Configuration</div>
+        <div class="ss-sub">Control automated supplier outreach and notifications</div>
+      </div>
+      <div class="ss-body">
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Sender Email</div>
+            <div class="setting-desc">Email address used for quote requests</div>
+          </div>
+          <input class="setting-input" value="procurement@paygentic.ai" type="email"/>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Sender Name</div>
+            <div class="setting-desc">Displayed sender name for outgoing emails</div>
+          </div>
+          <input class="setting-input" value="PayGentic Agent" type="text"/>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Enable Auto Follow-up</div>
+            <div class="setting-desc">Automatically send reminders if suppliers do not respond</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" checked/>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Follow-up Delay</div>
+            <div class="setting-desc">Hours before reminder emails are sent</div>
+          </div>
+          <input class="setting-input" value="24" type="number" style="width:80px;"/>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="setting-section" id="spending">
+      <div class="ss-header">
+        <div class="ss-title">Spending Limits & Escrow</div>
+        <div class="ss-sub">Financial controls and approval thresholds</div>
+      </div>
+      <div class="ss-body">
+        <div class="setting-row">
+          <div><div class="setting-label">Auto-approve threshold</div><div class="setting-desc">Transactions below this amount are auto-approved</div></div>
+          <input class="setting-input" id="autoApproveThreshold" value="2000" type="number"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Monthly spending limit</div><div class="setting-desc">Agent will pause if this limit is reached</div></div>
+          <input class="setting-input" id="monthlySpendLimit" value="30000" type="number"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Daily spending limit</div><div class="setting-desc">Maximum total spend allowed per day</div></div>
+          <input class="setting-input" id="dailySpendLimit" value="10000" type="number"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Allowed categories</div><div class="setting-desc">Comma-separated vendor categories the agent can transact with</div></div>
+          <input class="setting-input" id="allowedCategories" value="cotton yarn,textile dye,steel rod,machine parts" type="text" style="width:320px;"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Escrow provider</div><div class="setting-desc">Payment partner for fund custody</div></div>
+          <select class="setting-select"><option>Locus Paygentic</option><option>Razorpay Escrow</option><option>Cashfree</option></select>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Auto-refund on rejection</div><div class="setting-desc">Automatically return funds when a payment is rejected</div></div>
+          <label class="toggle"><input type="checkbox" checked/><span class="slider"></span></label>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="setting-section" id="escrow">
+      <div class="ss-header">
+        <div class="ss-title">Escrow Controls</div>
+        <div class="ss-sub">Configure escrow release, refund, and shipment verification rules</div>
+      </div>
+      <div class="ss-body">
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Require Shipment Proof</div>
+            <div class="setting-desc">Only allow escrow release after shipment proof upload</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" checked/>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Auto Release Delay</div>
+            <div class="setting-desc">Automatically release escrow after proof verification</div>
+          </div>
+          <input class="setting-input" value="12" type="number" style="width:80px;"/>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Allow Partial Refunds</div>
+            <div class="setting-desc">Permit partial wallet refunds for disputes</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox"/>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Escrow Timeout</div>
+            <div class="setting-desc">Hours before escrow expires automatically</div>
+          </div>
+          <input class="setting-input" value="72" type="number" style="width:80px;"/>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="setting-section" id="apikeys">
+      <div class="ss-header">
+        <div class="ss-title">API Keys</div>
+        <div class="ss-sub">External service credentials — stored encrypted at rest</div>
+      </div>
+      <div class="ss-body">
+        <div class="setting-row">
+          <div><div class="setting-label">Exa API Key</div><div class="setting-desc">Supplier search and discovery</div></div>
+          <div class="api-key-row">
+            <input class="setting-input" type="password" value="exa_live_••••••••••••" id="exaKey"/>
+            <button class="reveal-btn" onclick="toggleKey('exaKey')">Show</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Resend API Key</div><div class="setting-desc">Email automation for quote requests</div></div>
+          <div class="api-key-row">
+            <input class="setting-input" type="password" value="re_live_••••••••••••" id="resendKey"/>
+            <button class="reveal-btn" onclick="toggleKey('resendKey')">Show</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Apollo API Key</div><div class="setting-desc">Company enrichment and verification</div></div>
+          <div class="api-key-row">
+            <input class="setting-input" type="password" value="apo_••••••••••••" id="apolloKey"/>
+            <button class="reveal-btn" onclick="toggleKey('apolloKey')">Show</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Firecrawl API Key</div><div class="setting-desc">Web scraping for supplier data</div></div>
+          <div class="api-key-row">
+            <input class="setting-input" type="password" value="fc_••••••••••••" id="fcKey"/>
+            <button class="reveal-btn" onclick="toggleKey('fcKey')">Show</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="setting-section" id="notifications">
+      <div class="ss-header">
+        <div class="ss-title">GST Compliance Automation</div>
+        <div class="ss-sub">Browser Use + Laso workflow for GSTN filing and payment</div>
+      </div>
+      <div class="ss-body">
+        <div class="setting-row">
+          <div><div class="setting-label">GSTIN</div><div class="setting-desc">Vendor GST number for filing</div></div>
+          <input class="setting-input" id="gstinInput" value="33ABCDE1234F1Z5" type="text"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Filing period</div><div class="setting-desc">Format: YYYY-MM</div></div>
+          <input class="setting-input" id="filingPeriodInput" value="2026-04" type="text"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Tax amount</div><div class="setting-desc">INR amount to pay on GSTN portal</div></div>
+          <input class="setting-input" id="taxAmountInput" value="1200" type="number"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Portal</div><div class="setting-desc">Portal lock for virtual card payments</div></div>
+          <input class="setting-input" id="portalInput" value="GSTN" type="text"/>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Actions</div><div class="setting-desc">Provision card first, then execute automation</div></div>
+          <div class="api-key-row">
+            <button class="reveal-btn" onclick="provisionCard()">Provision Card</button>
+            <button class="reveal-btn" onclick="runGstAutomation()">Run GST Flow</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Latest Output</div><div class="setting-desc">Last card and GST automation result snapshot</div></div>
+          <textarea class="setting-input" id="integrationOutput" style="width:340px;height:90px;resize:vertical;">No integration action executed yet.</textarea>
+        </div>
+      </div>
+    </div>
+
+    <button class="save-btn" onclick="save()">Save Settings</button>
+  </div>
+</div>
+
+<script>
+const API_BASE = localStorage.getItem('paygenticApiBase') || 'http://localhost:8000';
+let activeCardId = null;
+
+function toggleKey(id) {
+  const inp = document.getElementById(id);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+function setIntegrationOutput(message) {
+  document.getElementById('integrationOutput').value = message;
+}
+
+async function postJson(path, payload) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || `Request failed (${response.status})`);
+  }
+  return data;
+}
+
+async function loadSpendingControls() {
+  try {
+    const response = await fetch(`${API_BASE}/api/spending-controls`);
+    if (!response.ok) return;
+    const data = await response.json();
+
+    document.getElementById('autoApproveThreshold').value = Number(data.auto_approve_threshold || 2000);
+    document.getElementById('monthlySpendLimit').value = Number(data.monthly_spend_limit || 30000);
+    document.getElementById('dailySpendLimit').value = Number(data.daily_spend_limit || 10000);
+    document.getElementById('allowedCategories').value = Array.isArray(data.allowed_categories)
+      ? data.allowed_categories.join(',')
+      : 'cotton yarn,textile dye,steel rod,machine parts';
+  } catch {
+    // Keep default values when backend is unavailable.
+  }
+}
+
+async function save() {
+  const autoApproveThreshold = Number(document.getElementById('autoApproveThreshold').value || 2000);
+  const monthlySpendLimit = Number(document.getElementById('monthlySpendLimit').value || 30000);
+  const dailySpendLimit = Number(document.getElementById('dailySpendLimit').value || 10000);
+  const allowedCategories = document.getElementById('allowedCategories').value
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+
+  try {
+    const response = await fetch(`${API_BASE}/api/spending-controls`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        auto_approve_threshold: autoApproveThreshold,
+        monthly_spend_limit: monthlySpendLimit,
+        daily_spend_limit: dailySpendLimit,
+        allowed_categories: allowedCategories.length
+          ? allowedCategories
+          : ['cotton yarn', 'textile dye', 'steel rod', 'machine parts']
+      })
+    });
+    if (!response.ok) throw new Error('Failed to save settings');
+  } catch {
+    const btn = document.querySelector('.save-btn');
+    btn.textContent = 'Save Failed';
+    btn.style.background = 'var(--coral)';
+    setTimeout(() => { btn.textContent = 'Save Settings'; btn.style.background = ''; }, 2000);
+    return;
+  }
+
+  const btn = document.querySelector('.save-btn');
+  btn.textContent = '✓ Saved';
+  btn.style.background = 'var(--green)';
+  setTimeout(() => { btn.textContent = 'Save Settings'; btn.style.background = ''; }, 2000);
+}
+
+async function loadLatestCard() {
+  try {
+    const response = await fetch(`${API_BASE}/api/virtual-cards`);
+    if (!response.ok) return;
+    const cards = await response.json();
+    if (Array.isArray(cards) && cards.length) {
+      activeCardId = cards[0].id;
+    }
+  } catch {
+    // Ignore bootstrap failures to keep settings page usable.
+  }
+}
+
+async function provisionCard() {
+  const taxAmount = Number(document.getElementById('taxAmountInput').value || 0);
+  const portal = document.getElementById('portalInput').value || 'GSTN';
+  const spendLimit = Math.max(1000, Math.ceil(Math.max(taxAmount, 1) * 1.2));
+
+  try {
+    setIntegrationOutput('Provisioning Laso virtual card...');
+    const card = await postJson('/api/virtual-cards', {
+      spend_limit: spendLimit,
+      alias: 'Settings GST Card',
+      merchant_lock: portal,
+      purpose: 'gst_payment',
+      session_id: 'settings_ui'
+    });
+    activeCardId = card.id;
+    setIntegrationOutput(`Virtual card ready\ncard_id=${card.id}\nlimit=${card.spend_limit}\navailable=${card.available_limit}`);
+  } catch (error) {
+    setIntegrationOutput(`Card provisioning failed: ${error.message}`);
+  }
+}
+
+async function runGstAutomation() {
+  const gstin = document.getElementById('gstinInput').value.trim();
+  const filingPeriod = document.getElementById('filingPeriodInput').value.trim();
+  const taxAmount = Number(document.getElementById('taxAmountInput').value || 0);
+  const portal = document.getElementById('portalInput').value.trim() || 'GSTN';
+
+  if (!gstin || !filingPeriod || taxAmount <= 0) {
+    setIntegrationOutput('Provide GSTIN, filing period, and positive tax amount.');
+    return;
+  }
+
+  try {
+    if (!activeCardId) {
+      await provisionCard();
+    }
+    setIntegrationOutput('Running Browser Use GST automation...');
+    const result = await postJson('/api/gstn/automate', {
+      gstin,
+      filing_period: filingPeriod,
+      tax_amount: taxAmount,
+      portal,
+      card_id: activeCardId,
+      session_id: 'settings_ui',
+      auto_pay: true
+    });
+    setIntegrationOutput(
+      `GST automation completed\nrun_id=${result.run_id}\nreceipt=${result.receipt_ref}\ncard=${result.card_id}\nstatus=${result.status}`
+    );
+  } catch (error) {
+    setIntegrationOutput(`GST automation failed: ${error.message}`);
+  }
+}
+
+loadSpendingControls();
+loadLatestCard();
+</script>
+</body>
+</html>

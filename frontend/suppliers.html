@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Suppliers — PayGentic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:#0a0b0f;--bg2:#111318;--bg3:#181b22;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+    --text:#e8eaf0;--muted:#7a8099;--accent:#6ee7b7;--accent2:#38bdf8;--amber:#fbbf24;--coral:#f87171;--purple:#a78bfa;--green:#4ade80;
+    --font-head:'Syne',sans-serif;--font-body:'Manrope',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:12px;--radius-sm:8px;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:14px;line-height:1.6;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:56px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+  .logo{font-family:var(--font-head);font-size:18px;font-weight:800;letter-spacing:-0.5px;color:var(--accent);display:flex;align-items:center;gap:8px;}
+  .logo-dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}
+  .nav-links{display:flex;gap:4px;}
+  .nav-link{font-family:var(--font-head);font-size:12px;font-weight:600;text-decoration:none;color:var(--muted);padding:6px 14px;border-radius:var(--radius-sm);transition:all 0.15s;letter-spacing:0.3px;}
+  .nav-link:hover{color:var(--text);background:var(--bg3);}
+  .nav-link.active{color:var(--accent);background:rgba(110,231,183,0.08);}
+  .status-pill{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;color:var(--accent);background:rgba(110,231,183,0.08);border:1px solid rgba(110,231,183,0.2);border-radius:20px;padding:4px 12px;}
+  .status-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.5s infinite;}
+
+  .page-content{max-width:1200px;margin:0 auto;padding:32px 24px;}
+  .page-header{margin-bottom:28px;}
+  .page-title{font-family:var(--font-head);font-size:24px;font-weight:800;color:var(--text);margin-bottom:6px;}
+  .page-sub{font-size:13px;color:var(--muted);}
+  
+  .filter-bar{display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap;}
+  .filter-btn{font-family:var(--font-head);font-size:11px;font-weight:700;letter-spacing:0.3px;padding:7px 14px;border-radius:6px;border:1px solid var(--border2);background:var(--bg2);color:var(--muted);cursor:pointer;transition:all 0.15s;}
+  .filter-btn.active{border-color:rgba(110,231,183,0.3);background:rgba(110,231,183,0.08);color:var(--accent);}
+  .filter-btn:hover{color:var(--text);}
+  .search-input{flex:1;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--font-body);font-size:13px;padding:7px 14px;outline:none;min-width:200px;}
+  .search-input:focus{border-color:rgba(110,231,183,0.3);}
+  .search-input::placeholder{color:var(--muted);}
+
+  .supplier-table{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  .table-header{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.5fr;padding:12px 20px;background:var(--bg3);border-bottom:1px solid var(--border);gap:10px;}
+  .th{font-family:var(--font-head);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+  .table-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1.5fr;padding:14px 20px;border-bottom:1px solid var(--border);align-items:center;gap:10px;transition:background 0.15s;cursor:pointer;}
+  .table-row:last-child{border-bottom:none;}
+  .table-row:hover{background:var(--bg3);}
+  .company-name{font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--text);}
+  .company-loc{font-size:11px;color:var(--muted);}
+  .price-val{font-family:var(--font-mono);font-size:13px;color:var(--accent);}
+  .score-bar{display:flex;align-items:center;gap:8px;}
+  .score-num{font-family:var(--font-mono);font-size:12px;color:var(--text);width:28px;}
+  .mini-bar{flex:1;height:4px;background:var(--bg);border-radius:2px;overflow:hidden;}
+  .mini-fill{height:100%;background:var(--accent);border-radius:2px;}
+  .tag{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;}
+  .tag-v{background:rgba(74,222,128,0.1);color:var(--green);border:1px solid rgba(74,222,128,0.2);}
+  .tag-u{background:rgba(248,113,113,0.1);color:var(--coral);border:1px solid rgba(248,113,113,0.2);}
+  .row-actions{display:flex;gap:6px;}
+  .mini-btn{font-family:var(--font-head);font-size:10px;font-weight:700;padding:5px 10px;border-radius:5px;cursor:pointer;transition:all 0.15s;border:none;}
+  .mb-ghost{background:var(--bg3);color:var(--muted);border:1px solid var(--border);}
+  .mb-ghost:hover{color:var(--text);}
+  .mb-primary{background:var(--accent);color:#0a0b0f;}
+  .mb-primary:hover{background:#4ade9b;}
+
+  /* Detail panel */
+  .detail-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center;}
+  .detail-overlay.show{display:flex;}
+  .detail-panel{background:var(--bg2);border:1px solid var(--border2);border-radius:16px;width:520px;max-height:80vh;overflow-y:auto;}
+  .dp-header{padding:24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;}
+  .dp-name{font-family:var(--font-head);font-size:20px;font-weight:800;}
+  .dp-close{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;font-family:var(--font-head);font-size:11px;font-weight:700;color:var(--muted);transition:all 0.15s;}
+  .dp-close:hover{color:var(--text);}
+  .dp-body{padding:20px 24px;}
+  .dp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
+  .dp-field{background:var(--bg3);border-radius:var(--radius-sm);padding:12px;}
+  .dp-label{font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:4px;}
+  .dp-value{font-family:var(--font-mono);font-size:13px;color:var(--text);}
+  .dp-section{font-family:var(--font-head);font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin:16px 0 10px;}
+  .dp-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 24px 24px;}
+  .dp-btn{padding:11px;border-radius:var(--radius-sm);font-family:var(--font-head);font-size:12px;font-weight:700;cursor:pointer;transition:all 0.15s;border:none;text-align:center;}
+  .dp-btn-outline{background:transparent;color:var(--accent2);border:1px solid rgba(56,189,248,0.3);}
+  .dp-btn-outline:hover{background:rgba(56,189,248,0.08);}
+  .dp-btn-solid{background:var(--accent);color:#0a0b0f;}
+  .dp-btn-solid:hover{background:#4ade9b;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo"><div class="logo-dot"></div>PayGentic</div>
+  <nav class="nav-links">
+    <a href="index.html" class="nav-link">Dashboard</a>
+    <a href="suppliers.html" class="nav-link active">Suppliers</a>
+    <a href="audit.html" class="nav-link">Audit Trail</a>
+    <a href="approvals.html" class="nav-link">Approvals</a>
+    <a href="settings.html" class="nav-link">Settings</a>
+  </nav>
+  <div class="status-pill"><div class="status-dot"></div>Agent Active</div>
+</div>
+
+<div class="page-content">
+  <div class="page-header">
+    <div class="page-title">Supplier Directory</div>
+    <div class="page-sub" id="supplierSub">Loading suppliers...</div>
+  </div>
+  <div class="filter-bar">
+    <input class="search-input" placeholder="Search suppliers..." oninput="filterSuppliers(this.value)"/>
+    <button class="filter-btn active" id="filterAllBtn" onclick="setFilter('all',this)">All</button>
+    <button class="filter-btn" onclick="setFilter('verified',this)">Verified Only</button>
+    <button class="filter-btn" onclick="setFilter('cheap',this)">Under ₹280/kg</button>
+    <button class="filter-btn" onclick="setFilter('fast',this)">Under 4 Days</button>
+  </div>
+  <div class="supplier-table">
+    <div class="table-header">
+      <div class="th">Company</div>
+      <div class="th">Price/kg</div>
+      <div class="th">Delivery</div>
+      <div class="th">Score</div>
+      <div class="th">Verified</div>
+      <div class="th">Email</div>
+      <div class="th">Actions</div>
+    </div>
+    <div id="supplierRows"></div>
+  </div>
+</div>
+
+<!-- Detail Panel -->
+<div class="detail-overlay" id="detailOverlay">
+  <div class="detail-panel">
+    <div class="dp-header">
+      <div>
+        <div class="dp-name" id="dpName"></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;" id="dpLoc"></div>
+      </div>
+      <button class="dp-close" onclick="closeDetail()">✕ Close</button>
+    </div>
+    <div class="dp-body">
+      <div class="dp-section">Contact & Verification</div>
+      <div class="dp-grid" id="dpGrid"></div>
+      <div class="dp-section">Pricing Details</div>
+      <div class="dp-grid" id="dpPricing"></div>
+    </div>
+    <div class="dp-actions">
+      <button class="dp-btn dp-btn-outline" onclick="sendQuoteFromDetail()">📧 Send Quote</button>
+      <button class="dp-btn dp-btn-solid" onclick="selectFromDetail()">✓ Select Supplier</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = localStorage.getItem('paygenticApiBase') || 'http://localhost:8000';
+
+const state = {
+  suppliers: [],
+  filtered: [],
+  activeSupplier: null,
+  activeFilter: 'all',
+  searchQuery: ''
+};
+
+function formatINR(value) {
+  return `₹${Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+}
+
+function fetchJson(path, options = {}) {
+  return fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    }
+  }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || `Request failed (${response.status})`);
+    return payload;
+  });
+}
+
+function normalizeSupplier(raw) {
+  return {
+    id: raw.id,
+    name: raw.company_name,
+    location: raw.location,
+    price: Number(raw.price_per_kg || 0),
+    delivery: Number(raw.delivery_days || 0),
+    verified: Boolean(raw.verified),
+    gstin: raw.gstin || '—',
+    email: raw.email || '—',
+    score: Number(raw.score || 0),
+    phone: raw.phone || '—',
+    website: raw.website || '—',
+    category: raw.category || 'General'
+  };
+}
+
+function applyFilters() {
+  const query = state.searchQuery.trim().toLowerCase();
+
+  let items = [...state.suppliers];
+  if (query) {
+    items = items.filter((supplier) =>
+      supplier.name.toLowerCase().includes(query) ||
+      supplier.location.toLowerCase().includes(query) ||
+      supplier.category.toLowerCase().includes(query)
+    );
+  }
+
+  if (state.activeFilter === 'verified') items = items.filter((supplier) => supplier.verified);
+  if (state.activeFilter === 'cheap') items = items.filter((supplier) => supplier.price < 280);
+  if (state.activeFilter === 'fast') items = items.filter((supplier) => supplier.delivery < 4);
+
+  state.filtered = items;
+  renderRows(state.filtered);
+}
+
+function renderRows(suppliers) {
+  const container = document.getElementById('supplierRows');
+  if (!suppliers.length) {
+    container.innerHTML = `
+      <div class="table-row">
+        <div><div class="company-name">No suppliers found</div><div class="company-loc">Try changing filters or run dashboard sourcing.</div></div>
+        <div>—</div><div>—</div><div>—</div><div>—</div><div>—</div><div>—</div>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = suppliers.map((supplier) => `
+    <div class="table-row" onclick="showDetail('${supplier.id}')">
+      <div><div class="company-name">${supplier.name}</div><div class="company-loc">📍 ${supplier.location}</div></div>
+      <div class="price-val">${formatINR(supplier.price)}</div>
+      <div style="font-family:var(--font-mono);font-size:13px;">${supplier.delivery}d</div>
+      <div class="score-bar">
+        <span class="score-num">${supplier.score}</span>
+        <div class="mini-bar"><div class="mini-fill" style="width:${Math.max(0, Math.min(100, supplier.score))}%"></div></div>
+      </div>
+      <div><span class="tag ${supplier.verified ? 'tag-v' : 'tag-u'}">${supplier.verified ? '✓ Yes' : '✕ No'}</span></div>
+      <div style="font-size:11px;color:var(--muted);word-break:break-all;">${supplier.email}</div>
+      <div class="row-actions" onclick="event.stopPropagation()">
+        <button class="mini-btn mb-ghost" onclick="sendQuote('${supplier.id}')">Quote</button>
+        <button class="mini-btn mb-primary" onclick="selectSupplier('${supplier.id}')">Select</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function filterSuppliers(query) {
+  state.searchQuery = query;
+  applyFilters();
+}
+
+function setFilter(type, button) {
+  state.activeFilter = type;
+  document.querySelectorAll('.filter-btn').forEach((item) => item.classList.remove('active'));
+  button.classList.add('active');
+  applyFilters();
+}
+
+function showDetail(id) {
+  const supplier = state.suppliers.find((item) => item.id === id);
+  if (!supplier) return;
+
+  state.activeSupplier = supplier;
+  document.getElementById('dpName').textContent = supplier.name;
+  document.getElementById('dpLoc').textContent = `📍 ${supplier.location} · ${supplier.category}`;
+  document.getElementById('dpGrid').innerHTML = `
+    <div class="dp-field"><div class="dp-label">Email</div><div class="dp-value" style="font-size:11px;">${supplier.email}</div></div>
+    <div class="dp-field"><div class="dp-label">Phone</div><div class="dp-value">${supplier.phone}</div></div>
+    <div class="dp-field"><div class="dp-label">GSTIN</div><div class="dp-value" style="font-size:11px;">${supplier.gstin}</div></div>
+    <div class="dp-field"><div class="dp-label">Website</div><div class="dp-value">${supplier.website}</div></div>
+    <div class="dp-field"><div class="dp-label">Verified</div><div class="dp-value" style="color:${supplier.verified ? 'var(--green)' : 'var(--coral)'}">${supplier.verified ? '✓ Verified' : '✕ Unverified'}</div></div>
+    <div class="dp-field"><div class="dp-label">Score</div><div class="dp-value" style="color:var(--accent)">${supplier.score}/100</div></div>
+  `;
+  document.getElementById('dpPricing').innerHTML = `
+    <div class="dp-field"><div class="dp-label">Price per kg</div><div class="dp-value" style="color:var(--accent)">${formatINR(supplier.price)}</div></div>
+    <div class="dp-field"><div class="dp-label">Delivery Days</div><div class="dp-value">${supplier.delivery} days</div></div>
+    <div class="dp-field"><div class="dp-label">1000kg Total</div><div class="dp-value" style="color:var(--amber)">${formatINR(supplier.price * 1000)}</div></div>
+    <div class="dp-field"><div class="dp-label">Category</div><div class="dp-value">${supplier.category}</div></div>
+  `;
+  document.getElementById('detailOverlay').classList.add('show');
+}
+
+function closeDetail() {
+  document.getElementById('detailOverlay').classList.remove('show');
+}
+
+async function sendQuote(id) {
+  const supplier = state.suppliers.find((item) => item.id === id);
+  if (!supplier) return;
+
+  try {
+    await fetchJson('/api/send-email', {
+      method: 'POST',
+      body: JSON.stringify({
+        supplier_id: supplier.id,
+        material: String(supplier.category || 'cotton yarn').toLowerCase(),
+        quantity: '1000',
+        max_budget: String(supplier.price),
+        delivery_days: supplier.delivery || 7,
+        session_id: 'manual'
+      })
+    });
+    alert(`Quote request sent to ${supplier.name}`);
+  } catch (error) {
+    alert(`Failed to send quote: ${error.message}`);
+  }
+}
+
+function sendQuoteFromDetail() {
+  if (state.activeSupplier) sendQuote(state.activeSupplier.id);
+  closeDetail();
+}
+
+async function selectSupplier(id) {
+  const supplier = state.suppliers.find((item) => item.id === id);
+  if (!supplier) return;
+
+  const amount = supplier.price * 1000;
+  try {
+    const escrow = await fetchJson('/api/create-escrow', {
+      method: 'POST',
+      body: JSON.stringify({
+        supplier: supplier.name,
+        amount,
+        session_id: 'manual',
+        category: String(supplier.category || 'general').toLowerCase()
+      })
+    });
+    alert(`Escrow created: ${escrow.id} (${escrow.status})`);
+  } catch (error) {
+    alert(`Escrow creation failed: ${error.message}`);
+  }
+}
+
+function selectFromDetail() {
+  if (state.activeSupplier) selectSupplier(state.activeSupplier.id);
+  closeDetail();
+}
+
+async function bootstrapSuppliers() {
+  try {
+    const payload = await fetchJson('/api/suppliers');
+    state.suppliers = payload.map(normalizeSupplier);
+    document.getElementById('supplierSub').textContent = `${state.suppliers.length} suppliers loaded • Ranked by score`;
+    document.getElementById('filterAllBtn').textContent = `All (${state.suppliers.length})`;
+    applyFilters();
+
+    const urlId = new URLSearchParams(location.search).get('id');
+    if (urlId) showDetail(urlId);
+  } catch (error) {
+    document.getElementById('supplierSub').textContent = `Failed to load suppliers: ${error.message}`;
+    renderRows([]);
+  }
+}
+
+bootstrapSuppliers();
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+# Python virtual environments
+.venv/
+venv/
+backend/venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# Environment files
+.env
+.env.local
+backend/.env
+
+# Build output
+dist/
+build/
+
+# Local databases
+*.db
+backend/database/paygentic.db
+
+# OS files
+.DS_Store

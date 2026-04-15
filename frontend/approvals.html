@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Approvals — PayGentic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root{--bg:#0a0b0f;--bg2:#111318;--bg3:#181b22;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--text:#e8eaf0;--muted:#7a8099;--accent:#6ee7b7;--accent2:#38bdf8;--amber:#fbbf24;--coral:#f87171;--purple:#a78bfa;--green:#4ade80;--font-head:'Syne',sans-serif;--font-body:'Manrope',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:12px;--radius-sm:8px;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:14px;line-height:1.6;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:56px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+  .logo{font-family:var(--font-head);font-size:18px;font-weight:800;letter-spacing:-0.5px;color:var(--accent);display:flex;align-items:center;gap:8px;}
+  .logo-dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}
+  .nav-links{display:flex;gap:4px;}
+  .nav-link{font-family:var(--font-head);font-size:12px;font-weight:600;text-decoration:none;color:var(--muted);padding:6px 14px;border-radius:var(--radius-sm);transition:all 0.15s;letter-spacing:0.3px;}
+  .nav-link:hover{color:var(--text);background:var(--bg3);}
+  .nav-link.active{color:var(--accent);background:rgba(110,231,183,0.08);}
+  .status-pill{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;color:var(--amber);background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:20px;padding:4px 12px;}
+  .status-dot{width:6px;height:6px;border-radius:50%;background:var(--amber);animation:pulse 1.5s infinite;}
+
+  .page-content{max-width:900px;margin:0 auto;padding:32px 24px;}
+  .page-header{margin-bottom:28px;}
+  .page-title{font-family:var(--font-head);font-size:24px;font-weight:800;color:var(--text);margin-bottom:6px;}
+  .page-sub{font-size:13px;color:var(--muted);}
+
+  .pending-banner{background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:var(--radius);padding:16px 20px;display:flex;align-items:center;gap:14px;margin-bottom:24px;}
+  .banner-icon{font-size:22px;}
+  .banner-text{flex:1;}
+  .banner-title{font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--amber);}
+  .banner-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+
+  .approval-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden;transition:border-color 0.2s;}
+  .approval-card.pending{border-color:rgba(251,191,36,0.25);}
+  .approval-card.approved{border-color:rgba(74,222,128,0.2);opacity:0.7;}
+  .approval-card.rejected{border-color:rgba(248,113,113,0.2);opacity:0.7;}
+  .ac-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+  .ac-title{font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--text);}
+  .ac-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+  .badge{font-family:var(--font-mono);font-size:10px;padding:4px 10px;border-radius:5px;}
+  .b-pending{background:rgba(251,191,36,0.12);color:var(--amber);border:1px solid rgba(251,191,36,0.25);}
+  .b-approved{background:rgba(74,222,128,0.1);color:var(--green);border:1px solid rgba(74,222,128,0.2);}
+  .b-rejected{background:rgba(248,113,113,0.1);color:var(--coral);border:1px solid rgba(248,113,113,0.2);}
+  .ac-body{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;padding:16px 20px;border-bottom:1px solid var(--border);}
+  .ac-field{padding:8px 12px;}
+  .ac-field:not(:last-child){border-right:1px solid var(--border);}
+  .ac-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px;}
+  .ac-value{font-family:var(--font-mono);font-size:14px;font-weight:500;color:var(--text);}
+  .ac-value.large{font-size:18px;color:var(--amber);}
+  .ac-actions{display:flex;gap:10px;padding:14px 20px;}
+  .btn-reject{background:rgba(248,113,113,0.1);color:var(--coral);border:1px solid rgba(248,113,113,0.25);padding:9px 20px;border-radius:var(--radius-sm);cursor:pointer;font-family:var(--font-head);font-size:12px;font-weight:700;transition:all 0.15s;}
+  .btn-reject:hover{background:rgba(248,113,113,0.2);}
+  .btn-approve{background:var(--accent);color:#0a0b0f;border:none;padding:9px 20px;border-radius:var(--radius-sm);cursor:pointer;font-family:var(--font-head);font-size:12px;font-weight:700;transition:all 0.15s;}
+  .btn-approve:hover{background:#4ade9b;}
+  .ac-reason{padding:12px 20px;background:var(--bg3);border-top:1px solid var(--border);font-size:12px;color:var(--muted);}
+  .ac-reason strong{color:var(--text);}
+
+  .history-section{margin-top:32px;}
+  .section-label{font-family:var(--font-head);font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:14px;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo"><div class="logo-dot"></div>PayGentic</div>
+  <nav class="nav-links">
+    <a href="index.html" class="nav-link">Dashboard</a>
+    <a href="suppliers.html" class="nav-link">Suppliers</a>
+    <a href="audit.html" class="nav-link">Audit Trail</a>
+    <a href="approvals.html" class="nav-link active">Approvals</a>
+    <a href="settings.html" class="nav-link">Settings</a>
+  </nav>
+  <div class="status-pill" id="statusPill"><div class="status-dot"></div>Loading</div>
+</div>
+
+<div class="page-content">
+  <div class="page-header">
+    <div class="page-title">Approval Center</div>
+    <div class="page-sub">Review and approve procurement transactions that exceed spending thresholds</div>
+  </div>
+
+  <div class="pending-banner" id="pendingBanner">
+    <div class="banner-icon">⚠</div>
+    <div class="banner-text">
+      <div class="banner-title" id="pendingBannerTitle">Loading approvals...</div>
+      <div class="banner-sub" id="pendingBannerSub">Fetching pending transactions from backend.</div>
+    </div>
+  </div>
+
+  <div class="section-label">Pending Approvals</div>
+  <div id="pendingContainer"></div>
+
+  <div class="history-section">
+    <div class="section-label">Approval History</div>
+    <div id="historyContainer"></div>
+  </div>
+</div>
+
+<script>
+const API_BASE = localStorage.getItem('paygenticApiBase') || 'http://localhost:8000';
+
+function formatINR(value) {
+  return `₹${Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+}
+
+function formatTime(ts) {
+  const date = new Date(ts);
+  return Number.isNaN(date.getTime()) ? '--' : date.toLocaleString();
+}
+
+function fetchJson(path, options = {}) {
+  return fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    }
+  }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.detail || `Request failed (${response.status})`);
+    }
+    return payload;
+  });
+}
+
+function renderBadge(status) {
+  if (status === 'pending_approval') return { cls: 'b-pending', text: 'Awaiting Approval' };
+  if (status === 'rejected') return { cls: 'b-rejected', text: 'Rejected' };
+  if (status === 'released') return { cls: 'b-approved', text: 'Released' };
+  if (status === 'refunded') return { cls: 'b-approved', text: 'Refunded' };
+  return { cls: 'b-approved', text: 'Approved' };
+}
+
+function renderCard(item, isPending) {
+  const cardClass = isPending ? 'pending' : (item.status === 'rejected' ? 'rejected' : 'approved');
+  const badge = renderBadge(item.status);
+  const session = item.session_id || 'manual';
+
+  return `
+    <div class="approval-card ${cardClass}">
+      <div class="ac-header">
+        <div>
+          <div class="ac-title">Procurement — ${item.supplier || 'Unknown Supplier'}</div>
+          <div class="ac-sub">Escrow ID: ${item.id} · Session: ${session}</div>
+        </div>
+        <span class="badge ${badge.cls}">${badge.text}</span>
+      </div>
+      <div class="ac-body">
+        <div class="ac-field">
+          <div class="ac-label">Total Amount</div>
+          <div class="ac-value large">${formatINR(item.amount)}</div>
+        </div>
+        <div class="ac-field">
+          <div class="ac-label">Supplier</div>
+          <div class="ac-value">${item.supplier || '—'}</div>
+        </div>
+        <div class="ac-field">
+          <div class="ac-label">Created At</div>
+          <div class="ac-value" style="font-size:12px;">${formatTime(item.created_at)}</div>
+        </div>
+      </div>
+      <div class="ac-reason">
+        <strong>Status:</strong> ${item.status || 'unknown'}
+      </div>
+      ${isPending ? `
+        <div class="ac-actions">
+          <button class="btn-reject" data-action="reject" data-escrow-id="${item.id}" data-session-id="${session}">✕ Reject Transaction</button>
+          <button class="btn-approve" data-action="approve" data-escrow-id="${item.id}" data-session-id="${session}">✓ Approve &amp; Lock Escrow</button>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function updateHeader(pendingCount) {
+  const statusPill = document.getElementById('statusPill');
+  const title = document.getElementById('pendingBannerTitle');
+  const sub = document.getElementById('pendingBannerSub');
+  const banner = document.getElementById('pendingBanner');
+
+  if (pendingCount > 0) {
+    statusPill.innerHTML = `<div class="status-dot"></div>${pendingCount} Pending`;
+    statusPill.style.color = 'var(--amber)';
+    statusPill.style.background = 'rgba(251,191,36,0.08)';
+    statusPill.style.borderColor = 'rgba(251,191,36,0.2)';
+    title.textContent = `${pendingCount} transaction${pendingCount === 1 ? '' : 's'} awaiting your approval`;
+    sub.textContent = 'Agent is paused until you approve or reject these payments.';
+    banner.style.display = 'flex';
+    return;
+  }
+
+  statusPill.innerHTML = `<div class="status-dot"></div>All Clear`;
+  statusPill.style.color = 'var(--accent)';
+  statusPill.style.background = 'rgba(110,231,183,0.08)';
+  statusPill.style.borderColor = 'rgba(110,231,183,0.2)';
+  title.textContent = 'No pending approvals';
+  sub.textContent = 'All high-value requests are already processed.';
+  banner.style.display = 'flex';
+}
+
+async function loadApprovals() {
+  try {
+    const data = await fetchJson('/api/approvals');
+    const pending = data.pending || [];
+    const history = data.history || [];
+
+    updateHeader(pending.length);
+
+    document.getElementById('pendingContainer').innerHTML = pending.length
+      ? pending.map((item) => renderCard(item, true)).join('')
+      : `<div class="approval-card approved"><div class="ac-header"><div><div class="ac-title">No pending approvals</div><div class="ac-sub">New high-value requests will appear here.</div></div><span class="badge b-approved">✓ Clear</span></div></div>`;
+
+    document.getElementById('historyContainer').innerHTML = history.length
+      ? history.map((item) => renderCard(item, false)).join('')
+      : `<div class="approval-card approved"><div class="ac-header"><div><div class="ac-title">No approval history yet</div><div class="ac-sub">Run a session from the dashboard to generate events.</div></div><span class="badge b-approved">Info</span></div></div>`;
+  } catch (error) {
+    document.getElementById('pendingContainer').innerHTML = `<div class="approval-card rejected"><div class="ac-header"><div><div class="ac-title">Failed to load approvals</div><div class="ac-sub">${error.message}</div></div><span class="badge b-rejected">Error</span></div></div>`;
+    document.getElementById('historyContainer').innerHTML = '';
+  }
+}
+
+async function submitDecision(escrowId, sessionId, approved) {
+  const endpoint = approved ? '/api/approve-payment' : '/api/reject-payment';
+  await fetchJson(endpoint, {
+    method: 'POST',
+    body: JSON.stringify({
+      escrow_id: escrowId,
+      session_id: sessionId || 'manual'
+    })
+  });
+}
+
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-action]');
+  if (!button) return;
+
+  const escrowId = button.getAttribute('data-escrow-id');
+  const sessionId = button.getAttribute('data-session-id');
+  const action = button.getAttribute('data-action');
+  const approved = action === 'approve';
+
+  button.disabled = true;
+  button.textContent = approved ? 'Approving...' : 'Rejecting...';
+
+  try {
+    await submitDecision(escrowId, sessionId, approved);
+    await loadApprovals();
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = approved ? '✓ Approve & Lock Escrow' : '✕ Reject Transaction';
+    alert(error.message);
+  }
+});
+
+loadApprovals();
+</script>
+</body>
+</html>
