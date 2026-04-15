@@ -9,6 +9,9 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, Optional
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -24,6 +27,7 @@ from models import (
     VirtualCardCreateRequest,
     VirtualCardDebitRequest,
     WalletTopUpRequest,
+    Supplier,
 )
 from services.audit_service import get_audit_trail, log_action
 from services.browser_use_service import list_gst_automation_runs, run_gst_automation
@@ -178,10 +182,31 @@ async def get_suppliers(material: Optional[str] = None):
 # ── Email Routes ───────────────────────────────────────────
 @app.post("/api/send-email")
 async def send_email(req: EmailRequest):
-    supplier = next((item for item in get_mock_suppliers() if item.id == req.supplier_id), None)
-    if not supplier:
-        raise HTTPException(status_code=404, detail="Supplier not found")
+    supplier = next(
+        (
+            item for item in get_mock_suppliers()
+            if item.id == req.supplier_id
+            or item.company_name.lower() == req.supplier_id.lower()
+        ),
+        None,
+    )
 
+    if not supplier:
+        supplier = Supplier(
+            id=req.supplier_id.lower().replace(" ", "_"),
+            company_name=req.supplier_id,
+            price_per_kg=0,
+            delivery_days=req.delivery_days,
+            verified=False,
+            gstin="",
+            email=f"sales@{req.supplier_id.lower().replace(' ', '')}.com",
+            phone=None,
+            location="India",
+            website=None,
+            score=75,
+            category=req.material,
+    )
+        
     qty = _to_float(req.quantity, 1000.0)
     max_budget = _to_float(req.max_budget, 300.0)
     parsed = parse_request(f"{qty}kg {req.material} under {max_budget}/kg within {req.delivery_days} days")

@@ -154,7 +154,9 @@ def _safe_domain(url: str) -> str:
 
 def _build_supplier_from_url(url: str, parsed: ParsedRequest, idx: int) -> Supplier:
     domain = _safe_domain(url)
-    company_stem = domain.split(".")[0].replace("-", " ").title() or f"Supplier {idx + 1}"
+    raw_company = domain.replace("www.", "")
+    company_stem = raw_company.split(".")[0].replace("-", " ").replace("_", " ").strip()
+    company_stem = company_stem.title() or f"Supplier {idx + 1}"
     seed = abs(hash(domain)) % 1000
 
     price_multiplier = 0.82 + (seed % 30) / 100
@@ -168,6 +170,9 @@ def _build_supplier_from_url(url: str, parsed: ParsedRequest, idx: int) -> Suppl
     locations = ["Coimbatore", "Erode", "Surat", "Ahmedabad", "Tiruppur", "Mumbai", "Salem", "Ludhiana"]
     location = locations[seed % len(locations)]
 
+    clean_domain = domain.replace("www.", "")
+    email = f"sales@{clean_domain}" if "." in clean_domain else f"sales@{company_stem.lower().replace(' ', '')}.com"
+
     return Supplier(
         id=f"live_{idx:03d}",
         company_name=company_stem,
@@ -175,7 +180,7 @@ def _build_supplier_from_url(url: str, parsed: ParsedRequest, idx: int) -> Suppl
         delivery_days=delivery_days,
         verified=verified,
         gstin=gstin,
-        email=f"sales@{domain}" if "." in domain else f"sales@{company_stem.lower().replace(' ', '')}.com",
+        email=email,
         phone=None,
         location=location,
         website=url,
