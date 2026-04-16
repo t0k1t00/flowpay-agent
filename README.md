@@ -1,211 +1,443 @@
-# PayGentic
+<div align="center">
 
-Autonomous B2B sourcing and escrow workflow built for the Locus Paygentic Hackathon (Week 1: PayWithLocus suite).
+<img src="branding/Flowpay_Logo.png" alt="Flowpay Logo" width="220" />
 
-## Week 1 Alignment
+# Flowpay
 
-This implementation is aligned to the Week 1 track because it focuses on:
+### Autonomous multi-agent B2B sourcing, escrow, and compliance orchestration
 
-- Agent-initiated supplier discovery (Exa-style flow)
-- Agent-initiated web data extraction (Firecrawl-style flow)
-- PayWithLocus-style spending controls and budget enforcement
-- Human-in-the-loop approval threshold for high-value payments
-- Escrow lifecycle (reserve, approve/reject, release/refund)
-- Real-time agent reasoning and financial event streaming
+Move from sourcing request to supplier selection, escrow controls, approvals, and compliance actions in one real-time workflow.
 
-## K Scope Status
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg?style=for-the-badge)](README.md)
+[![License](https://img.shields.io/badge/license-Proprietary-red.svg?style=for-the-badge)](README.md)
+[![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-API-009688.svg?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![WebSocket](https://img.shields.io/badge/WebSocket-Live%20Event%20Stream-0EA5E9.svg?style=for-the-badge)](backend/main.py)
+[![PayWithLocus](https://img.shields.io/badge/PayWithLocus-Integrated-10B981.svg?style=for-the-badge)](backend/services/spending_controls.py)
 
-Implemented in this repo:
+[About](#about-the-project) | [Architecture](#system-architecture) | [Agent Flow](#the-6-stage-agent-flow) | [Getting Started](#getting-started) | [API](#api-reference) | [Security](#security-and-controls)
 
-- Agent orchestration framework with tool interfaces (`backend/services/orchestrator.py`)
-- Locus wallet + spending controls (`backend/services/spending_controls.py`)
-- Exa + Firecrawl integrated search pipeline with micropayment charging and fallback mode (`backend/services/supplier_search.py`)
-- HITL spending threshold and approval events (`backend/services/orchestrator.py`, `backend/main.py`)
-- Escrow lock/release/refund logic backed by wallet state transitions (`backend/services/escrow_service.py`)
-- Real-time agent log panel connected to backend WebSocket stream (`frontend/index.html`)
-- Backend APIs for wallet state and spending control configuration (`backend/main.py`)
+</div>
 
-Out of code scope:
+---
 
-- Demo video recording (manual task)
-- External account funding (Locus dashboard action)
+## Table of Contents
 
-## Swathi Scope Status
+- [About the Project](#about-the-project)
+- [System Architecture](#system-architecture)
+- [The 6-Stage Agent Flow](#the-6-stage-agent-flow)
+- [Tech Stack](#tech-stack)
+- [Getting Started](#getting-started)
+- [Configuration](#configuration)
+- [API Reference](#api-reference)
+- [Security and Controls](#security-and-controls)
+- [Project Structure](#project-structure)
+- [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
+- [Developers](#developers)
+- [Contributing](#contributing)
+- [Reference Files](#reference-files)
 
-Implemented in this repo:
+---
 
-- Apollo-style supplier enrichment and GSTIN scoring stage in pipeline (`backend/services/supplier_search.py`)
-- Resend quote dispatch automation path (`backend/services/email_service.py`)
-- Browser Use style GSTN automation endpoint (`POST /api/gstn/automate`)
-- Laso virtual card provisioning and debit flow (`backend/services/laso_service.py`)
-- Boundary test suite for budget breach, category restriction, card-limit breach, and audit verification (`backend/tests/test_boundary_suite.py`)
-- Locus audit trail panel and wallet ledger visualized in frontend (`frontend/audit.html`)
-- Frontend settings controls for provisioning cards and triggering GST automation (`frontend/settings.html`)
+## About the Project
 
-Out of code scope:
+Flowpay is an autonomous B2B procurement and escrow workflow built for PayWithLocus-aligned sourcing use cases.
 
-- Devfolio form submission and final upload (manual task)
+The backend code currently uses the internal codename `PayGentic`, while this README documents the project as Flowpay.
 
-## Architecture
+### What it does
 
-```
-Frontend Dashboard (index.html)
-  - Start sourcing session
-  - WebSocket log stream
-  - Supplier cards
-  - Approval modal
-  - Wallet + escrow timeline
+- Parses natural language sourcing requests into structured intent
+- Searches suppliers and applies enrichment/ranking for procurement decisions
+- Dispatches quote emails through a Resend-style automation path
+- Enforces spending controls and category guardrails before transactions
+- Creates escrow records with auto-approval or human approval routing
+- Streams live execution logs and financial events over WebSocket
+- Supports compliance automation flows with virtual card and GST automation endpoints
 
-FastAPI Backend (main.py)
-  - /api/request-source
-  - /ws/logs
-  - /api/wallet-state
-  - /api/spending-controls
-  - escrow + audit endpoints
+### Why this exists
 
-Orchestrator Tool Chain
-  1) Parse intent
-  2) Search suppliers (Exa path)
-  3) Scrape/enrich (Firecrawl + Apollo path)
-  4) Rank suppliers
-  5) Send quote emails
-  6) Create escrow + trigger approval when needed
+Procurement execution is often fragmented between discovery, communication, approvals, and payment controls. Flowpay compresses this into a single, auditable, agent-driven pipeline.
 
-Control Layer
-  - Monthly/daily limits
-  - Auto-approve threshold
-  - Allowed vendor categories
-  - Wallet ledger for micropayments and escrow events
-```
+---
 
-## Project Structure
+## System Architecture
 
-```
-backend/
-  main.py
-  models.py
-  requirements.txt
-  .env.example
-  services/
-    orchestrator.py
-    spending_controls.py
-    supplier_search.py
-    browser_use_service.py
-    laso_service.py
-    escrow_service.py
-    email_service.py
-    parser.py
-    audit_service.py
-  tests/
-    test_boundary_suite.py
-  websocket/
-    manager.py
-  database/
-    db.py
+Client requests enter FastAPI, then flow through a tool-chain orchestrator. Financial actions are guarded by wallet and spending-control checks.
 
-frontend/
-  index.html
-  suppliers.html
-  audit.html
-  approvals.html
-  settings.html
+```mermaid
+graph TB
+    UI[Frontend Dashboard] --> API[FastAPI Backend]
+    API --> ORCH[Procurement Orchestrator]
+
+    ORCH --> PARSE[Parse Intent]
+    ORCH --> SEARCH[Supplier Discovery]
+    ORCH --> ENRICH[Supplier Enrichment]
+    ORCH --> QUOTE[Quote Dispatch]
+    ORCH --> ESCROW[Escrow Management]
+
+    SEARCH --> EXA[Exa Search]
+    ENRICH --> FIRE[Apollo and Firecrawl Style Enrichment]
+    QUOTE --> RESEND[Resend Email Path]
+    ESCROW --> CONTROLS[Spending Controls and Wallet]
+    ESCROW --> APPROVAL[Human Approval if Needed]
+
+    API --> WS[WebSocket Event Stream]
+    API --> COMPLIANCE[GSTN and Virtual Card APIs]
+
+    style ORCH fill:#10b981,stroke:#059669,stroke-width:3px,color:#fff
+    style API fill:#2563eb,stroke:#1d4ed8,stroke-width:2px,color:#fff
+    style CONTROLS fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff
+    style WS fill:#0ea5e9,stroke:#0284c7,stroke-width:2px,color:#fff
 ```
 
-## Run Locally
+### Core Components
 
-### 1) Backend
+| Component | Responsibility |
+|-----------|----------------|
+| FastAPI API Layer | Exposes sourcing, escrow, wallet, card, GST, and audit endpoints |
+| Procurement Orchestrator | Runs multi-step tool pipeline from parse to escrow |
+| Supplier Search Service | Search, scrape confirmation, enrichment, and ranking |
+| Spending Controls Service | Enforces limits, category policy, and micropayment charging |
+| Escrow Service | Reserve, approve/reject, release, and refund transitions |
+| Compliance Services | Virtual card lifecycle and GST automation run tracking |
+| WebSocket Manager | Streams real-time logs and workflow events to frontend |
+
+---
+
+## The 6-Stage Agent Flow
+
+### Stage 1: Parse Intent
+
+- Parse user request for material, quantity, budget, and delivery target
+
+### Stage 2: Discover Suppliers
+
+- Run supplier discovery flow
+- Charge micropayment ledger for search operations
+
+### Stage 3: Enrich and Rank
+
+- Enrich discovered suppliers and adjust confidence scores
+- Rank suppliers against price, delivery, verification, and fit
+
+### Stage 4: Dispatch Quotes
+
+- Send quote requests to top suppliers
+- Log outbound communication events
+
+### Stage 5: Create Escrow
+
+- Reserve wallet amount for selected supplier
+- Auto-approve below threshold, route higher amounts for approval
+
+### Stage 6: Finalize and Stream
+
+- Broadcast escrow/approval outcomes and wallet state updates
+- Persist audit trail records and session summary metadata
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as API
+    participant O as Orchestrator
+    participant S as Supplier Services
+    participant E as Escrow
+    participant W as Wallet Controls
+
+    C->>A: POST /api/request-source
+    A->>O: Create session and start pipeline
+    O->>S: Parse, search, enrich, rank
+    S-->>O: Ranked suppliers
+    O->>S: Dispatch quote emails
+    O->>E: Create escrow for selected supplier
+    E->>W: Reserve and validate spend
+    W-->>E: Approval required or auto-approved
+    O-->>A: Pipeline completed
+    A-->>C: Session status and WebSocket events
+```
+
+---
+
+## Tech Stack
+
+### Core Runtime
+
+| Tech | Purpose |
+|------|---------|
+| Python | Backend runtime |
+| FastAPI | API and WebSocket server |
+| Pydantic v2 | Request/response schemas |
+| Uvicorn | ASGI server |
+| httpx | External API client |
+
+### Integrations and Workflow
+
+| Integration | Purpose |
+|-------------|---------|
+| Exa-style search | Supplier discovery |
+| Firecrawl-style scrape path | Supplier page confirmation |
+| Apollo-style enrichment | Supplier enrichment and scoring |
+| Resend-style email path | Quote dispatch workflow |
+| Laso virtual cards | Compliance payment instruments |
+| Browser Use GST automation | GST filing/payment automation path |
+
+### Frontend
+
+| Layer | Purpose |
+|-------|---------|
+| HTML/CSS/JavaScript | Dashboard and control panels |
+| WebSocket client | Real-time execution event stream |
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.10+
+- `pip`
+- Optional: Node.js (if you prefer `npx serve` for frontend)
+
+### 1) Run backend
 
 ```bash
 cd backend
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
 python main.py
 ```
 
-Backend runs on `http://localhost:8000`
-WebSocket stream is at `ws://localhost:8000/ws/logs`
+Backend starts at `http://localhost:8000`.
 
-### 2) Frontend
+### 2) Run frontend
 
-Open `frontend/index.html` in browser, or serve statically:
+Option A: Python static server
+
+```bash
+cd frontend
+python3 -m http.server 5500
+```
+
+Then open `http://localhost:5500/index.html`.
+
+Option B: Node static server
 
 ```bash
 cd frontend
 npx serve .
 ```
 
-## Environment Variables
+### 3) Verify health
 
-Core variables in `backend/.env.example`:
+```bash
+curl http://localhost:8000/health
+```
 
-- `EXA_API_KEY`
-- `FIRECRAWL_API_KEY`
-- `RESEND_API_KEY`
-- `LOCUS_API_KEY`
-- `LOCUS_API_BASE`
-- `AUTO_APPROVE_THRESHOLD`
-- `MONTHLY_SPEND_LIMIT`
-- `DAILY_SPEND_LIMIT`
-- `WALLET_BALANCE`
-- `ALLOWED_VENDOR_CATEGORIES`
-- `USE_LIVE_APIS`
-- `USE_LOCUS_WRAPPED_APIS`
+### 4) Connect to live logs
 
-`USE_LIVE_APIS=false` (default) uses deterministic mock fallback with real control logic.
+WebSocket endpoint: `ws://localhost:8000/ws/logs`
 
-## API Endpoints
+---
 
-Main workflow:
+## Configuration
 
-- `POST /api/request-source`
-- `GET /api/session/{session_id}`
-- `WS /ws/logs`
+Create `backend/.env` if you want to override defaults.
 
-Wallet and controls:
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `USE_LIVE_APIS` | Enable live API mode for integrations | `false` |
+| `USE_LOCUS_WRAPPED_APIS` | Route via Locus wrapped endpoints | `false` |
+| `LOCUS_API_KEY` | Locus API key for wrapped calls | unset |
+| `LOCUS_API_BASE` | Base URL for wrapped API gateway | `https://api.paywithlocus.com/api` |
+| `EXA_API_KEY` | Exa API key (live mode) | unset |
+| `FIRECRAWL_API_KEY` | Firecrawl API key (live mode) | unset |
+| `RESEND_API_KEY` | Resend API key (live mode) | unset |
+| `AUTO_APPROVE_THRESHOLD` | Amount threshold for auto-approval | `2000` |
+| `MONTHLY_SPEND_LIMIT` | Monthly wallet spend cap | `30000` |
+| `DAILY_SPEND_LIMIT` | Daily wallet spend cap | `10000` |
+| `WALLET_BALANCE` | Initial wallet balance | `50000` |
+| `ALLOWED_VENDOR_CATEGORIES` | Allowed escrow categories (comma-separated) | `cotton yarn,textile dye,steel rod,machine parts` |
 
-- `GET /api/wallet-state`
-- `POST /api/wallet-topup`
-- `GET /api/wallet-ledger`
-- `GET /api/spending-controls`
-- `PUT /api/spending-controls`
+---
 
-Escrow and approvals:
+## API Reference
 
-- `POST /api/create-escrow`
-- `GET /api/escrows`
-- `GET /api/approvals`
-- `POST /api/approve-payment`
-- `POST /api/reject-payment`
-- `POST /api/release-escrow`
-- `POST /api/refund-escrow`
+### Workflow and Sessions
 
-Audit:
+- `POST /api/request-source` - Start sourcing pipeline session
+- `GET /api/session/{session_id}` - Get session status and summary
+- `GET /api/suppliers` - List suppliers (optional `material` query)
+- `POST /api/send-email` - Send quote request email to supplier
+- `WS /ws/logs` - Stream real-time agent events
 
-- `GET /api/audit-trail`
+### Escrow and Approvals
 
-Compliance automation:
+- `POST /api/create-escrow` - Create escrow reservation
+- `GET /api/escrows` - List escrows
+- `GET /api/approvals` - Pending/history approval feed
+- `POST /api/approve-payment` - Approve escrow payment
+- `POST /api/reject-payment` - Reject escrow payment
+- `POST /api/release-escrow` - Release locked escrow
+- `POST /api/refund-escrow` - Refund escrow amount
 
-- `POST /api/virtual-cards`
-- `GET /api/virtual-cards`
-- `GET /api/virtual-cards/{card_id}`
-- `POST /api/virtual-cards/debit`
-- `GET /api/virtual-cards/{card_id}/transactions`
-- `POST /api/gstn/automate`
-- `GET /api/gstn/runs`
+### Wallet and Controls
 
-## Boundary Tests
+- `GET /api/wallet-state` - Current wallet state
+- `POST /api/wallet-topup` - Credit wallet balance
+- `GET /api/wallet-ledger` - Wallet ledger entries
+- `GET /api/spending-controls` - Read active controls
+- `PUT /api/spending-controls` - Update controls
 
-Run the boundary suite from backend folder:
+### Compliance and Cards
+
+- `POST /api/virtual-cards` - Create virtual card
+- `GET /api/virtual-cards` - List virtual cards
+- `GET /api/virtual-cards/{card_id}` - Card details
+- `POST /api/virtual-cards/debit` - Debit virtual card
+- `GET /api/virtual-cards/{card_id}/transactions` - Card transaction history
+- `POST /api/gstn/automate` - Run GST automation flow
+- `GET /api/gstn/runs` - List GST automation runs
+
+### Audit and Health
+
+- `GET /api/audit-trail` - Retrieve audit entries
+- `GET /health` - Service health and active session count
+
+### Example Request
+
+```json
+{
+  "query": "Need 1200kg cotton yarn under 300 per kg within 5 days",
+  "session_id": "demo_flow_01"
+}
+```
+
+### Example Start Response
+
+```json
+{
+  "status": "started",
+  "session_id": "demo_flow_01"
+}
+```
+
+---
+
+## Security and Controls
+
+- Spending policy checks run before escrow reservation and API micropayments
+- Category allow-list is enforced for procurement transactions
+- Human-in-the-loop approval triggers above threshold values
+- Wallet ledger records top-ups, escrow actions, refunds, and API usage charges
+- Audit trail captures workflow and compliance events
+
+---
+
+## Project Structure
+
+```text
+flowpay-agent/
++-- README.md
++-- branding/
+|   `-- Flowpay_Logo.png
++-- backend/
+|   +-- main.py
+|   +-- models.py
+|   +-- requirements.txt
+|   +-- database/
+|   |   +-- __init__.py
+|   |   `-- db.py
+|   +-- services/
+|   |   +-- __init__.py
+|   |   +-- audit_service.py
+|   |   +-- browser_use_service.py
+|   |   +-- email_service.py
+|   |   +-- escrow_service.py
+|   |   +-- laso_service.py
+|   |   +-- orchestrator.py
+|   |   +-- parser.py
+|   |   +-- spending_controls.py
+|   |   `-- supplier_search.py
+|   +-- tests/
+|   |   +-- __init__.py
+|   |   `-- test_boundary_suite.py
+|   `-- websocket/
+|       +-- __init__.py
+|       `-- manager.py
+`-- frontend/
+    +-- index.html
+    +-- suppliers.html
+    +-- approvals.html
+    +-- audit.html
+    `-- settings.html
+```
+
+---
+
+## Testing
+
+Run the backend boundary suite:
 
 ```bash
 cd backend
 python -m unittest discover -s tests -p "test_*.py"
 ```
 
-## Notes
+Current tests cover:
 
-- Current wallet, audit, and escrow stores are in-memory services for hackathon speed.
-- SQLite initialization is present and can be used for persistence extension.
-- The dashboard now consumes live backend events instead of synthetic client-only timeline data.
+- Daily spend limit breach rejection
+- Disallowed category rejection
+- Virtual card limit enforcement
+- GST automation audit record generation
+
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| Backend does not start | Activate venv and re-run `pip install -r backend/requirements.txt` |
+| Frontend does not show live events | Check backend is running and WebSocket endpoint `/ws/logs` is reachable |
+| Escrow creation fails unexpectedly | Verify `DAILY_SPEND_LIMIT`, `MONTHLY_SPEND_LIMIT`, and category allow-list |
+| Live integrations not working | Confirm `USE_LIVE_APIS=true` plus required API keys are set |
+| Wrapped API calls failing | Verify `LOCUS_API_KEY` and `LOCUS_API_BASE` |
+
+---
+
+## Developers
+
+1. Keerthivasan S V
+2. Swathi B Raj
+
+---
+
+## Contributing
+
+1. Create a feature branch
+2. Implement your changes with tests where relevant
+3. Run backend tests
+4. Open a pull request with clear scope and rationale
+
+---
+
+## Reference Files
+
+- [backend/main.py](backend/main.py)
+- [backend/services/orchestrator.py](backend/services/orchestrator.py)
+- [backend/services/spending_controls.py](backend/services/spending_controls.py)
+- [backend/services/supplier_search.py](backend/services/supplier_search.py)
+- [backend/services/escrow_service.py](backend/services/escrow_service.py)
+- [backend/services/browser_use_service.py](backend/services/browser_use_service.py)
+- [backend/services/laso_service.py](backend/services/laso_service.py)
+- [backend/tests/test_boundary_suite.py](backend/tests/test_boundary_suite.py)
+
+---
+
+<div align="center">
+
+Flowpay
+
+</div>
