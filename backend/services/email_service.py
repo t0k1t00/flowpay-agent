@@ -1,11 +1,18 @@
 """Email Automation Service — Resend API (simulated)"""
 
+import logging
+import os
 import uuid
 from datetime import datetime
 from typing import List
 
 from models import Supplier, ParsedRequest
+from services.payment_required import post_json_with_402_retry
+from services.runtime_config import strict_integrations, use_live_apis
 from services.spending_controls import charge_api_usage
+
+
+logger = logging.getLogger("flowpay.email")
 
 
 def generate_email_body(supplier: Supplier, parsed: ParsedRequest) -> dict:
@@ -43,15 +50,61 @@ def send_quote_emails(suppliers: List[Supplier], parsed: ParsedRequest, session_
             metadata={"emails": len(suppliers), "material": parsed.material},
         )
 
+    resend_key = os.getenv("RESEND_API_KEY", "").strip()
+    if use_live_apis() and (not resend_key or "your_" in resend_key):
+        if strict_integrations():
+            raise RuntimeError("RESEND_API_KEY is required in strict live mode")
+        logger.warning("RESEND_API_KEY missing in live mode, degrading to simulated email dispatch")
+
+    can_send_live = use_live_apis() and resend_key and "your_" not in resend_key
+    from_email = os.getenv("RESEND_FROM_EMAIL", "Flowpay <noreply@flowpay.ai>")
+
     results = []
     for supplier in suppliers:
         email = generate_email_body(supplier, parsed)
-        # Simulated send — replace with resend.Emails.send(email)
-        results.append({
-            "id": f"email_{uuid.uuid4().hex[:8]}",
-            "to": email["to"],
-            "subject": email["subject"],
-            "status": "sent",
-            "sent_at": datetime.now().isoformat()
-        })
+        if can_send_live:
+            payload = {
+                "from": from_email,
+                "to": [email["to"]],
+                "subject": email["subject"],
+                "text": email["body"],
+            }
+            headers = {
+                "Authorization": f"Bearer {resend_key}",
+                "Content-Type": "application/json",
+            }
+
+            response = post_json_with_402_retry(
+                url="https://api.resend.com/emails",
+                payload=payload,
+                headers=headers,
+                provider="resend",
+                session_id=session_id,
+                timeout=15,
+                circuit_key="resend",
+            ).response
+            body = response.json() if response.content else {}
+            results.append(
+                {
+                    "id": str(body.get("id") or f"email_{uuid.uuid4().hex[:8]}"),
+                    "to": email["to"],
+                    "subject": email["subject"],
+                    "status": "sent",
+                    "provider": "resend",
+                    "mode": "live",
+                    "sent_at": datetime.now().isoformat(),
+                }
+            )
+        else:
+            results.append(
+                {
+                    "id": f"email_{uuid.uuid4().hex[:8]}",
+                    "to": email["to"],
+                    "subject": email["subject"],
+                    "status": "sent",
+                    "provider": "simulated",
+                    "mode": "degraded",
+                    "sent_at": datetime.now().isoformat(),
+                }
+            )
     return results
