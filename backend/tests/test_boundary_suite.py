@@ -122,6 +122,62 @@ class BoundarySuiteTests(unittest.TestCase):
         self.assertIn("virtual_card_provisioned", actions)
         self.assertIn("gstn_automation_run", actions)
 
+    def test_readiness_endpoint_reports_ready(self) -> None:
+        response = self.client.get("/health/ready")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload.get("ready"))
+        self.assertTrue(payload.get("db_ready"))
+
+    def test_gst_runs_endpoint_returns_recent_run(self) -> None:
+        run = self.client.post(
+            "/api/gstn/automate",
+            json={
+                "gstin": "33ABCDE1234F1Z5",
+                "filing_period": "2026-04",
+                "tax_amount": 125,
+                "session_id": "test_gst_runs",
+                "auto_pay": False,
+            },
+        )
+        self.assertEqual(run.status_code, 200)
+        run_id = run.json().get("run_id")
+
+        listing = self.client.get("/api/gstn/runs?limit=20")
+        self.assertEqual(listing.status_code, 200)
+        ids = [row.get("run_id") for row in listing.json()]
+        self.assertIn(run_id, ids)
+
+    def test_virtual_card_transactions_endpoint_returns_debit(self) -> None:
+        created = self.client.post(
+            "/api/virtual-cards",
+            json={
+                "spend_limit": 1500,
+                "session_id": "test_card_txn_list",
+                "alias": "Txn Test Card",
+                "merchant_lock": "GSTN",
+            },
+        )
+        self.assertEqual(created.status_code, 200)
+        card_id = created.json().get("id")
+
+        debit = self.client.post(
+            "/api/virtual-cards/debit",
+            json={
+                "card_id": card_id,
+                "amount": 450,
+                "session_id": "test_card_txn_list",
+                "reason": "history_check",
+            },
+        )
+        self.assertEqual(debit.status_code, 200)
+        txn_id = debit.json().get("id")
+
+        history = self.client.get(f"/api/virtual-cards/{card_id}/transactions?limit=20")
+        self.assertEqual(history.status_code, 200)
+        ids = [row.get("id") for row in history.json()]
+        self.assertIn(txn_id, ids)
+
 
 if __name__ == "__main__":
     unittest.main()
