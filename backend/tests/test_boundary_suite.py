@@ -178,6 +178,45 @@ class BoundarySuiteTests(unittest.TestCase):
         ids = [row.get("id") for row in history.json()]
         self.assertIn(txn_id, ids)
 
+    def test_a2a_marketplace_register_and_execute(self) -> None:
+        registered = self.client.post(
+            "/api/a2a/services/register",
+            json={
+                "name": "Page Scraper",
+                "capability": "web_scrape",
+                "price_per_unit": 0.5,
+                "seller_agent_id": "agent_seller_01",
+                "session_id": "test_a2a",
+            },
+        )
+        self.assertEqual(registered.status_code, 200)
+        service_id = registered.json().get("id")
+
+        listed = self.client.get("/api/a2a/services?capability=web_scrape")
+        self.assertEqual(listed.status_code, 200)
+        ids = [row.get("id") for row in listed.json()]
+        self.assertIn(service_id, ids)
+
+        executed = self.client.post(
+            "/api/a2a/tasks/execute",
+            json={
+                "service_id": service_id,
+                "requester_agent_id": "agent_buyer_01",
+                "units": 3,
+                "payload": {"target": "https://example.com"},
+                "session_id": "test_a2a",
+            },
+        )
+        self.assertEqual(executed.status_code, 200)
+        task = executed.json()
+        self.assertEqual(task.get("status"), "completed")
+        self.assertAlmostEqual(float(task.get("total_amount", 0.0)), 1.5, places=6)
+
+        tasks = self.client.get("/api/a2a/tasks?limit=20&session_id=test_a2a")
+        self.assertEqual(tasks.status_code, 200)
+        task_ids = [row.get("id") for row in tasks.json()]
+        self.assertIn(task.get("id"), task_ids)
+
 
 if __name__ == "__main__":
     unittest.main()
