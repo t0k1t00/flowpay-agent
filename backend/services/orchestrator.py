@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
 import os
@@ -55,8 +56,13 @@ class AgentDecisionEngine:
         preferred = [
             (context.parsed is None, "parse_intent"),
             (context.parsed is not None and not context.suppliers, "supplier_discovery"),
-            (context.suppliers and context.selected_supplier is None and context.escrow is None, "supplier_enrichment"),
-            (context.suppliers and context.email_dispatch_count == 0, "quote_dispatch"),
+            (context.suppliers and "supplier_enrichment" not in context.executed_tools, "supplier_enrichment"),
+            (
+                context.suppliers
+                and context.email_dispatch_count == 0
+                and "quote_dispatch" not in context.executed_tools,
+                "quote_dispatch",
+            ),
             (context.suppliers and context.escrow is None, "escrow_management"),
         ]
         for condition, tool_name in preferred:
@@ -169,7 +175,7 @@ class SupplierDiscoveryTool:
             }
         )
 
-        suppliers = search_suppliers(context.parsed, context.session_id)
+        suppliers = await asyncio.to_thread(search_suppliers, context.parsed, context.session_id)
         context.suppliers = suppliers
 
         await emit(
@@ -204,8 +210,8 @@ class SupplierEnrichmentTool:
             }
         )
 
-        enriched = enrich_suppliers(context.suppliers, context.session_id)
-        ranked = rank_suppliers(enriched, context.parsed)
+        enriched = await asyncio.to_thread(enrich_suppliers, context.suppliers, context.session_id)
+        ranked = await asyncio.to_thread(rank_suppliers, enriched, context.parsed)
         context.suppliers = ranked
 
         await emit(
@@ -231,7 +237,7 @@ class QuoteDispatchTool:
             raise ValueError("No suppliers available for quote dispatch")
 
         top_suppliers = context.suppliers[:3]
-        results = send_quote_emails(top_suppliers, context.parsed, context.session_id)
+        results = await asyncio.to_thread(send_quote_emails, top_suppliers, context.parsed, context.session_id)
         context.email_dispatch_count = len(results)
 
         await emit(
@@ -273,7 +279,7 @@ class EscrowTool:
             }
         )
 
-        escrow = create_escrow(best, amount, context.session_id, context.parsed.material)
+        escrow = await asyncio.to_thread(create_escrow, best, amount, context.session_id, context.parsed.material)
         context.escrow = escrow
 
         await emit(
@@ -349,9 +355,18 @@ class ProcurementOrchestrator:
         if tool_name == "supplier_discovery":
             return context.parsed is not None and not context.suppliers
         if tool_name == "supplier_enrichment":
-            return context.parsed is not None and bool(context.suppliers)
+            return (
+                context.parsed is not None
+                and bool(context.suppliers)
+                and "supplier_enrichment" not in context.executed_tools
+            )
         if tool_name == "quote_dispatch":
-            return context.parsed is not None and bool(context.suppliers) and context.email_dispatch_count == 0
+            return (
+                context.parsed is not None
+                and bool(context.suppliers)
+                and context.email_dispatch_count == 0
+                and "quote_dispatch" not in context.executed_tools
+            )
         if tool_name == "escrow_management":
             return context.parsed is not None and bool(context.suppliers) and context.escrow is None
         return True
