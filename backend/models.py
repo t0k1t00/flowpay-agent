@@ -135,3 +135,22 @@ class GSTAutomationRequest(BaseModel):
     portal: str = "GSTN"
     notes: Optional[str] = None
     auto_pay: bool = True
+
+
+class A2AServiceRegisterRequest(BaseModel):
+    name: str
+    capability: str
+    price_per_unit: float
+    seller_agent_id: str
+    session_id: str = "manual"
+    endpoint_url: Optional[str] = None
+    currency: str = "USD"
+    metadata: Optional[dict] = None
+
+
+class A2ATaskExecuteRequest(BaseModel):
+    service_id: str
+    requester_agent_id: str
+    units: float = 1.0
+    payload: Optional[dict] = None
+    session_id: str = "manual"
