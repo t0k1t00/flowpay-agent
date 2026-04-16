@@ -51,20 +51,31 @@ def create_escrow(supplier: Union[Supplier, str], amount: float, session_id: str
     status = "pending_approval" if requires_approval else "locked"
     supplier_name = _supplier_name(supplier)
 
-    remote = escrow_create(
-        supplier=supplier_name,
-        amount=amount,
-        session_id=session_id,
-        category=category,
-        requires_approval=requires_approval,
-    )
+    try:
+        remote = escrow_create(
+            supplier=supplier_name,
+            amount=amount,
+            session_id=session_id,
+            category=category,
+            requires_approval=requires_approval,
+        )
+    except Exception:
+        # If upstream escrow creation fails, release the reserved wallet hold.
+        cancel_reserved_escrow(amount, session_id)
+        raise
+
     if remote:
         eid = str(remote.get("id") or remote.get("escrow_id") or eid)
         status = str(remote.get("status") or status)
         requires_approval = bool(remote.get("requires_approval", requires_approval))
 
     if not requires_approval:
-        approve_reserved_escrow(amount, session_id)
+        try:
+            approve_reserved_escrow(amount, session_id)
+        except Exception:
+            # Keep wallet state recoverable when auto-approval cannot complete.
+            cancel_reserved_escrow(amount, session_id)
+            raise
 
     record = EscrowRecord(
         id=eid,
