@@ -9,7 +9,7 @@
 Move from sourcing request to supplier selection, escrow controls, approvals, and compliance actions in one real-time workflow.
 
 [![Version](https://img.shields.io/badge/version-1.1.0-blue.svg?style=for-the-badge)](README.md)
-[![License](https://img.shields.io/badge/license-Proprietary-red.svg?style=for-the-badge)](README.md)
+[![License](https://img.shields.io/badge/license-Proprietary-red.svg?style=for-the-badge)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-API-009688.svg?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![WebSocket](https://img.shields.io/badge/WebSocket-Live%20Event%20Stream-0EA5E9.svg?style=for-the-badge)](backend/main.py)
@@ -36,6 +36,7 @@ Move from sourcing request to supplier selection, escrow controls, approvals, an
 - [Troubleshooting](#troubleshooting)
 - [Developers](#developers)
 - [Contributing](#contributing)
+- [License](#license)
 - [Reference Files](#reference-files)
 
 ---
@@ -420,6 +421,14 @@ Current tests cover:
 2. Implement your changes with tests where relevant
 3. Run backend tests
 4. Open a pull request with clear scope and rationale
+
+---
+
+## License
+
+This project is licensed under the Flowpay Proprietary License.
+
+See [LICENSE](LICENSE) for full terms.
 
 ---
 
