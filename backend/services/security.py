@@ -24,9 +24,7 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
     _public_paths = {
         "/",
         "/health",
-        "/docs",
-        "/redoc",
-        "/openapi.json",
+        "/health/ready",
         "/ws/logs",
     }
 
