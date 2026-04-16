@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import os
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 from database.db import (
     get_a2a_service_record,
@@ -17,7 +19,7 @@ from database.db import (
 )
 from services.payment_required import post_json_with_402_retry
 from services.runtime_config import strict_integrations
-from services.spending_controls import charge_api_usage
+from services.spending_controls import charge_api_usage, refund_spent_escrow
 
 
 logger = logging.getLogger("flowpay.a2a")
@@ -29,6 +31,63 @@ _LOADED_FROM_DB = False
 
 def _now() -> str:
     return datetime.now().isoformat()
+
+
+def _allowed_endpoint_hosts() -> List[str]:
+    raw = os.getenv("A2A_ALLOWED_ENDPOINT_HOSTS", "").strip()
+    if not raw:
+        return []
+    return [host.strip().lower() for host in raw.split(",") if host.strip()]
+
+
+def _is_disallowed_host(host: str) -> bool:
+    normalized = host.strip().lower().strip(".")
+    if not normalized:
+        return True
+    if normalized == "localhost" or normalized.endswith(".localhost") or normalized.endswith(".local"):
+        return True
+
+    try:
+        ip = ipaddress.ip_address(normalized)
+    except ValueError:
+        return False
+
+    return (
+        ip.is_private
+        or ip.is_loopback
+        or ip.is_link_local
+        or ip.is_multicast
+        or ip.is_reserved
+        or ip.is_unspecified
+    )
+
+
+def _validate_endpoint_url(endpoint_url: Optional[str]) -> Optional[str]:
+    if endpoint_url is None:
+        return None
+
+    cleaned = endpoint_url.strip()
+    if not cleaned:
+        return None
+
+    parsed = urlparse(cleaned)
+    scheme = (parsed.scheme or "").lower()
+    if scheme != "https":
+        raise ValueError("endpoint_url must use https")
+    if parsed.username or parsed.password:
+        raise ValueError("endpoint_url must not include embedded credentials")
+
+    host = (parsed.hostname or "").strip().lower()
+    if not host:
+        raise ValueError("endpoint_url must include a valid host")
+    if _is_disallowed_host(host):
+        raise ValueError("endpoint_url host is not allowed")
+
+    allowlist = _allowed_endpoint_hosts()
+    if allowlist and host not in allowlist:
+        raise ValueError("endpoint_url host is not in A2A_ALLOWED_ENDPOINT_HOSTS")
+
+    return cleaned
 
 
 def _ensure_loaded() -> None:
@@ -68,12 +127,14 @@ def register_service(
     if price_per_unit <= 0:
         raise ValueError("price_per_unit must be greater than zero")
 
+    validated_endpoint = _validate_endpoint_url(endpoint_url)
+
     service_id = f"svc_{uuid.uuid4().hex[:10]}"
     record = {
         "id": service_id,
         "name": name.strip(),
         "capability": capability.strip().lower(),
-        "endpoint_url": endpoint_url.strip() if endpoint_url else None,
+        "endpoint_url": validated_endpoint,
         "price_per_unit": round(float(price_per_unit), 6),
         "currency": currency.strip().upper() or "USD",
         "seller_agent_id": seller_agent_id.strip(),
@@ -242,11 +303,26 @@ def execute_task(
         task["result"] = remote_result
     except Exception as exc:
         if strict_integrations():
+            refund_event: Optional[Dict[str, Any]] = None
+            refund_error: Optional[str] = None
+            try:
+                refund_event = refund_spent_escrow(total_amount, session_id)
+            except Exception as refund_exc:
+                refund_error = str(refund_exc)
+
             task["status"] = "failed"
-            task["result"] = {"error": str(exc), "mode": "strict_failure"}
+            task["result"] = {
+                "error": str(exc),
+                "mode": "strict_failure",
+                "charge_reverted": refund_error is None,
+                "refund_event": refund_event,
+                "refund_error": refund_error,
+            }
             task["completed_at"] = _now()
             upsert_a2a_task(task)
-            raise RuntimeError("A2A task execution failed") from exc
+            if refund_error:
+                raise RuntimeError("A2A task execution failed and charge refund failed") from exc
+            raise RuntimeError("A2A task execution failed; charge reverted") from exc
 
         logger.warning("a2a remote execution degraded: %s", str(exc))
         task["status"] = "completed"
