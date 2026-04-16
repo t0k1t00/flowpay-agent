@@ -159,6 +159,40 @@ def init_db():
         completed_at TEXT,
         raw_json TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS a2a_services (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        capability TEXT NOT NULL,
+        endpoint_url TEXT,
+        price_per_unit REAL NOT NULL,
+        currency TEXT NOT NULL,
+        seller_agent_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        session_id TEXT,
+        metadata_json TEXT,
+        created_at TEXT,
+        updated_at TEXT,
+        raw_json TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS a2a_tasks (
+        id TEXT PRIMARY KEY,
+        service_id TEXT NOT NULL,
+        requester_agent_id TEXT NOT NULL,
+        seller_agent_id TEXT,
+        units REAL NOT NULL,
+        unit_price REAL NOT NULL,
+        total_amount REAL NOT NULL,
+        currency TEXT NOT NULL,
+        status TEXT NOT NULL,
+        payload_json TEXT,
+        result_json TEXT,
+        session_id TEXT,
+        created_at TEXT,
+        completed_at TEXT,
+        raw_json TEXT
+    );
     """)
 
     conn.commit()
@@ -601,6 +635,137 @@ def list_gst_run_records(limit: int = 50) -> List[Dict[str, Any]]:
         """,
         (max(0, limit),),
     )
+    rows = [_safe_json_loads(_row_to_dict(row).get("raw_json"), {}) for row in cur.fetchall()]
+    conn.close()
+    cleaned = [row for row in rows if isinstance(row, dict)]
+    return list(reversed(cleaned))
+
+
+def upsert_a2a_service(record: Dict[str, Any]) -> None:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT OR REPLACE INTO a2a_services (
+            id, name, capability, endpoint_url, price_per_unit, currency, seller_agent_id, status,
+            session_id, metadata_json, created_at, updated_at, raw_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            record.get("id"),
+            record.get("name"),
+            record.get("capability"),
+            record.get("endpoint_url"),
+            record.get("price_per_unit", 0.0),
+            record.get("currency", "USD"),
+            record.get("seller_agent_id"),
+            record.get("status", "active"),
+            record.get("session_id"),
+            json.dumps(record.get("metadata", {}), ensure_ascii=True),
+            record.get("created_at"),
+            record.get("updated_at"),
+            json.dumps(record, ensure_ascii=True),
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_a2a_service_record(service_id: str) -> Optional[Dict[str, Any]]:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT raw_json FROM a2a_services WHERE id = ?", (service_id,))
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        return None
+    return _safe_json_loads(_row_to_dict(row).get("raw_json"), {})
+
+
+def list_a2a_service_records(
+    capability: Optional[str] = None,
+    max_price: Optional[float] = None,
+    status: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    conn = get_conn()
+    cur = conn.cursor()
+
+    query = "SELECT raw_json FROM a2a_services WHERE 1=1"
+    params: List[Any] = []
+    if capability:
+        query += " AND lower(capability) = lower(?)"
+        params.append(capability)
+    if status:
+        query += " AND lower(status) = lower(?)"
+        params.append(status)
+    if max_price is not None:
+        query += " AND price_per_unit <= ?"
+        params.append(max_price)
+
+    query += " ORDER BY price_per_unit ASC, created_at DESC"
+
+    cur.execute(query, tuple(params))
+    rows = [_safe_json_loads(_row_to_dict(row).get("raw_json"), {}) for row in cur.fetchall()]
+    conn.close()
+    return [row for row in rows if isinstance(row, dict)]
+
+
+def upsert_a2a_task(record: Dict[str, Any]) -> None:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT OR REPLACE INTO a2a_tasks (
+            id, service_id, requester_agent_id, seller_agent_id, units, unit_price, total_amount,
+            currency, status, payload_json, result_json, session_id, created_at, completed_at, raw_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            record.get("id"),
+            record.get("service_id"),
+            record.get("requester_agent_id"),
+            record.get("seller_agent_id"),
+            record.get("units", 0.0),
+            record.get("unit_price", 0.0),
+            record.get("total_amount", 0.0),
+            record.get("currency", "USD"),
+            record.get("status", "queued"),
+            json.dumps(record.get("payload", {}), ensure_ascii=True),
+            json.dumps(record.get("result", {}), ensure_ascii=True),
+            record.get("session_id"),
+            record.get("created_at"),
+            record.get("completed_at"),
+            json.dumps(record, ensure_ascii=True),
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+
+def list_a2a_task_records(limit: int = 100, session_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    conn = get_conn()
+    cur = conn.cursor()
+
+    if session_id:
+        cur.execute(
+            """
+            SELECT raw_json FROM a2a_tasks
+            WHERE session_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (session_id, max(0, limit)),
+        )
+    else:
+        cur.execute(
+            """
+            SELECT raw_json FROM a2a_tasks
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (max(0, limit),),
+        )
+
     rows = [_safe_json_loads(_row_to_dict(row).get("raw_json"), {}) for row in cur.fetchall()]
     conn.close()
     cleaned = [row for row in rows if isinstance(row, dict)]
