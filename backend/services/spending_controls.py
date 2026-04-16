@@ -6,9 +6,16 @@ import os
 import uuid
 from datetime import datetime
 from threading import Lock
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
+from database.db import (
+    get_wallet_state_record,
+    insert_wallet_ledger_entry,
+    list_wallet_ledger_entries,
+    upsert_wallet_state,
+)
 from models import WalletState
+from services.locus_client import wallet_credit, wallet_debit
 
 
 def _env_float(name: str, default: float) -> float:
@@ -47,6 +54,7 @@ _STATE: Dict[str, Any] = {
 }
 
 _LEDGER: List[Dict[str, Any]] = []
+_PAYMENT_EVENT_HOOK: Optional[Callable[[Dict[str, Any]], None]] = None
 
 
 def _now_iso() -> str:
@@ -71,7 +79,46 @@ def _record(kind: str, amount: float, session_id: str, status: str, metadata: Di
         "timestamp": _now_iso(),
     }
     _LEDGER.append(entry)
+
+    try:
+        insert_wallet_ledger_entry(entry)
+    except Exception:
+        pass
+
+    try:
+        upsert_wallet_state(_STATE)
+    except Exception:
+        pass
+
+    hook = _PAYMENT_EVENT_HOOK
+    if hook:
+        try:
+            hook(entry)
+        except Exception:
+            pass
+
     return entry
+
+
+def set_payment_event_hook(hook: Optional[Callable[[Dict[str, Any]], None]]) -> None:
+    global _PAYMENT_EVENT_HOOK
+    _PAYMENT_EVENT_HOOK = hook
+
+
+def hydrate_wallet_state() -> None:
+    with _LOCK:
+        persisted = get_wallet_state_record()
+        if persisted:
+            _STATE["balance"] = float(persisted.get("balance", _STATE["balance"]))
+            _STATE["spent"] = float(persisted.get("spent", _STATE["spent"]))
+            _STATE["escrow_locked"] = float(persisted.get("escrow_locked", _STATE["escrow_locked"]))
+            _STATE["spent_today"] = float(persisted.get("spent_today", _STATE["spent_today"]))
+            _STATE["day_key"] = str(persisted.get("day_key") or _STATE["day_key"])
+        else:
+            upsert_wallet_state(_STATE)
+
+        _LEDGER.clear()
+        _LEDGER.extend(list_wallet_ledger_entries(limit=1000))
 
 
 def _available_balance() -> float:
@@ -157,6 +204,13 @@ def charge_api_usage(provider: str, amount: float, session_id: str, metadata: Di
         _assert_positive(amount)
         _assert_spend_limits(amount)
 
+        wallet_debit(
+            amount=amount,
+            session_id=session_id,
+            reason="api_micropayment",
+            metadata={"provider": provider, **metadata},
+        )
+
         _STATE["balance"] -= amount
         _STATE["spent"] += amount
         _STATE["spent_today"] += amount
@@ -194,6 +248,13 @@ def approve_reserved_escrow(amount: float, session_id: str) -> Dict[str, Any]:
         if amount > _STATE["escrow_locked"]:
             raise ValueError("Escrow approval failed: reserved amount not found")
 
+        wallet_debit(
+            amount=amount,
+            session_id=session_id,
+            reason="escrow_approve",
+            metadata={},
+        )
+
         _STATE["escrow_locked"] -= amount
         _STATE["balance"] -= amount
         _STATE["spent"] += amount
@@ -224,6 +285,12 @@ def cancel_reserved_escrow(amount: float, session_id: str) -> Dict[str, Any]:
 def refund_spent_escrow(amount: float, session_id: str) -> Dict[str, Any]:
     with _LOCK:
         _assert_positive(amount)
+        wallet_credit(
+            amount=amount,
+            session_id=session_id,
+            reason="escrow_refund",
+            metadata={},
+        )
         _STATE["balance"] += amount
         _STATE["spent"] = max(0.0, _STATE["spent"] - amount)
         _STATE["spent_today"] = max(0.0, _STATE["spent_today"] - amount)
@@ -239,6 +306,12 @@ def refund_spent_escrow(amount: float, session_id: str) -> Dict[str, Any]:
 def topup_wallet(amount: float, session_id: str = "manual", reason: str = "manual_topup") -> Dict[str, Any]:
     with _LOCK:
         _assert_positive(amount)
+        wallet_credit(
+            amount=amount,
+            session_id=session_id,
+            reason=reason,
+            metadata={},
+        )
         _STATE["balance"] += amount
         return _record(
             kind="wallet_topup",
@@ -252,4 +325,7 @@ def topup_wallet(amount: float, session_id: str = "manual", reason: str = "manua
 def get_wallet_ledger(limit: int = 100) -> List[Dict[str, Any]]:
     if limit <= 0:
         return []
-    return _LEDGER[-limit:]
+    try:
+        return list_wallet_ledger_entries(limit=limit)
+    except Exception:
+        return _LEDGER[-limit:]
