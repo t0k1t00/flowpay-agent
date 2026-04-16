@@ -57,6 +57,7 @@ The backend code currently uses the internal codename `PayGentic`, while this RE
 - Creates escrow records with auto-approval or human approval routing
 - Streams live execution logs and financial events over WebSocket
 - Supports compliance automation flows with virtual card and GST automation endpoints
+- Supports A2A service listing and micropayment-backed agent task execution
 
 ### Why this exists
 
@@ -87,6 +88,7 @@ graph TB
 
     API --> WS[WebSocket Event Stream]
     API --> COMPLIANCE[GSTN and Virtual Card APIs]
+    API --> A2A[A2A Service Marketplace]
 
     style ORCH fill:#10b981,stroke:#059669,stroke-width:3px,color:#fff
     style API fill:#2563eb,stroke:#1d4ed8,stroke-width:2px,color:#fff
@@ -104,6 +106,7 @@ graph TB
 | Spending Controls Service | Enforces limits, category policy, and micropayment charging |
 | Escrow Service | Reserve, approve/reject, release, and refund transitions |
 | Compliance Services | Virtual card lifecycle and GST automation run tracking |
+| A2A Marketplace Service | Agent service listing, paid task execution, and task history |
 | WebSocket Manager | Streams real-time logs and workflow events to frontend |
 
 ---
@@ -268,6 +271,9 @@ Copy `backend/.env.example` to `backend/.env` and update values for your environ
 | `FIRECRAWL_API_KEY` | Firecrawl API key (live mode) | unset |
 | `RESEND_API_KEY` | Resend API key (live mode) | unset |
 | `RESEND_FROM_EMAIL` | Sender identity for outbound quote emails | `Flowpay <noreply@flowpay.ai>` |
+| `APOLLO_API_KEY` | Apollo/Clado enrichment key for live supplier enrichment | unset |
+| `APOLLO_ENRICH_ENDPOINT` | Live enrichment endpoint for supplier identity enrichment | unset |
+| `A2A_SHARED_TOKEN` | Optional bearer token for remote A2A service execution | unset |
 | `OPENAI_API_KEY` | Enables LLM planning and LLM parsing paths | unset |
 | `AGENT_MODEL` | LLM model used by parser and decision engine | `gpt-4o-mini` |
 | `AUTO_APPROVE_THRESHOLD` | Amount threshold for auto-approval | `2000` |
@@ -316,11 +322,18 @@ Copy `backend/.env.example` to `backend/.env` and update values for your environ
 - `POST /api/gstn/automate` - Run GST automation flow
 - `GET /api/gstn/runs` - List GST automation runs
 
+### A2A Marketplace
+
+- `POST /api/a2a/services/register` - Register an agent-provided service with unit pricing
+- `GET /api/a2a/services` - List registered services with capability and price filters
+- `POST /api/a2a/tasks/execute` - Execute a paid A2A task against a selected service
+- `GET /api/a2a/tasks` - List A2A task runs and outcomes
+
 ### Audit and Health
 
 - `GET /api/audit-trail` - Retrieve audit entries
-- `GET /health` - Service health and active session count
-- `GET /health/ready` - Readiness check including DB connectivity
+- `GET /health` - Service health, DB readiness, and provider readiness summary
+- `GET /health/ready` - Readiness check including DB and live provider health
 
 ### Example Request
 
@@ -371,12 +384,19 @@ flowpay-agent/
 |   +-- services/
 |   |   +-- __init__.py
 |   |   +-- audit_service.py
+|   |   +-- a2a_marketplace_service.py
 |   |   +-- browser_use_service.py
 |   |   +-- email_service.py
 |   |   +-- escrow_service.py
 |   |   +-- laso_service.py
+|   |   +-- locus_client.py
 |   |   +-- orchestrator.py
+|   |   +-- payment_required.py
 |   |   +-- parser.py
+|   |   +-- provider_health.py
+|   |   +-- reliability.py
+|   |   +-- runtime_config.py
+|   |   +-- security.py
 |   |   +-- spending_controls.py
 |   |   `-- supplier_search.py
 |   +-- tests/
@@ -410,6 +430,9 @@ Current tests cover:
 - Disallowed category rejection
 - Virtual card limit enforcement
 - GST automation audit record generation
+- Readiness endpoint validation
+- GST run persistence listing
+- Virtual card transaction persistence listing
 
 ---
 
@@ -453,11 +476,15 @@ See [LICENSE](LICENSE) for full terms.
 
 - [backend/main.py](backend/main.py)
 - [backend/services/orchestrator.py](backend/services/orchestrator.py)
+- [backend/services/a2a_marketplace_service.py](backend/services/a2a_marketplace_service.py)
 - [backend/services/spending_controls.py](backend/services/spending_controls.py)
 - [backend/services/supplier_search.py](backend/services/supplier_search.py)
 - [backend/services/escrow_service.py](backend/services/escrow_service.py)
 - [backend/services/browser_use_service.py](backend/services/browser_use_service.py)
 - [backend/services/laso_service.py](backend/services/laso_service.py)
+- [backend/services/provider_health.py](backend/services/provider_health.py)
+- [backend/services/payment_required.py](backend/services/payment_required.py)
+- [backend/database/db.py](backend/database/db.py)
 - [backend/tests/test_boundary_suite.py](backend/tests/test_boundary_suite.py)
 
 ---
