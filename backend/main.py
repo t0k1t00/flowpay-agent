@@ -18,6 +18,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database.db import init_db, insert_agent_event, is_db_ready, list_sessions, upsert_session
 from models import (
+    A2AServiceRegisterRequest,
+    A2ATaskExecuteRequest,
     ApprovalRequest,
     EmailRequest,
     EscrowRequest,
@@ -29,6 +31,12 @@ from models import (
     VirtualCardDebitRequest,
     WalletTopUpRequest,
     Supplier,
+)
+from services.a2a_marketplace_service import (
+    execute_task as execute_a2a_task,
+    list_services as list_a2a_services,
+    list_tasks as list_a2a_tasks,
+    register_service as register_a2a_service,
 )
 from services.audit_service import get_audit_trail, log_action
 from services.browser_use_service import list_gst_automation_runs, run_gst_automation
@@ -51,6 +59,7 @@ from services.laso_service import (
 )
 from services.orchestrator import ProcurementOrchestrator
 from services.parser import parse_request
+from services.provider_health import get_provider_health
 from services.runtime_config import load_runtime_config
 from services.security import ApiKeyMiddleware
 from services.spending_controls import (
@@ -541,6 +550,68 @@ async def api_list_gstn_runs(limit: int = 50):
     return list_gst_automation_runs(limit=limit)
 
 
+# ── A2A Marketplace ───────────────────────────────────────
+@app.post("/api/a2a/services/register")
+async def api_register_a2a_service(payload: A2AServiceRegisterRequest):
+    try:
+        service = register_a2a_service(
+            name=payload.name,
+            capability=payload.capability,
+            price_per_unit=payload.price_per_unit,
+            seller_agent_id=payload.seller_agent_id,
+            session_id=payload.session_id,
+            endpoint_url=payload.endpoint_url,
+            currency=payload.currency,
+            metadata=payload.metadata,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    log_action("a2a_service_registered", service["id"], service["price_per_unit"], "active", payload.session_id)
+    await broadcast_event({"type": "a2a_service_registered", "session_id": payload.session_id, "data": service})
+    return service
+
+
+@app.get("/api/a2a/services")
+async def api_list_a2a_services(capability: Optional[str] = None, max_price: Optional[float] = None, status: str = "active"):
+    if max_price is not None and max_price <= 0:
+        raise HTTPException(status_code=400, detail="max_price must be greater than zero")
+
+    return list_a2a_services(capability=capability, max_price=max_price, status=status)
+
+
+@app.post("/api/a2a/tasks/execute")
+async def api_execute_a2a_task(payload: A2ATaskExecuteRequest):
+    try:
+        task = execute_a2a_task(
+            service_id=payload.service_id,
+            requester_agent_id=payload.requester_agent_id,
+            units=payload.units,
+            payload=payload.payload,
+            session_id=payload.session_id,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    log_action(
+        "a2a_task_executed",
+        payload.service_id,
+        float(task.get("total_amount", 0)),
+        str(task.get("status", "completed")),
+        payload.session_id,
+    )
+    await broadcast_event({"type": "a2a_task", "session_id": payload.session_id, "data": task})
+    await emit_wallet_state(payload.session_id)
+    return task
+
+
+@app.get("/api/a2a/tasks")
+async def api_list_a2a_tasks(limit: int = 100, session_id: Optional[str] = None):
+    return list_a2a_tasks(limit=limit, session_id=session_id)
+
+
 # ── Audit Trail ────────────────────────────────────────────
 @app.get("/api/audit-trail")
 async def get_audit(session_id: Optional[str] = None):
@@ -551,24 +622,29 @@ async def get_audit(session_id: Optional[str] = None):
 @app.get("/health")
 async def health() -> Dict[str, Any]:
     db_ready = is_db_ready()
+    provider_health = get_provider_health()
+    ready_for_live = db_ready and provider_health.get("required_live_providers_healthy", True)
     return {
-        "status": "ok" if db_ready else "degraded",
+        "status": "ok" if ready_for_live else "degraded",
         "version": "1.1.0",
         "active_sessions": len([s for s in sessions.values() if s.get("status") == "running"]),
         "auth_enabled": runtime_cfg.require_api_key,
         "live_integrations": runtime_cfg.use_live_apis,
         "db_ready": db_ready,
+        "providers": provider_health,
     }
 
 
 @app.get("/health/ready")
 async def health_ready() -> Dict[str, Any]:
     db_ready = is_db_ready()
-    ready = db_ready
+    provider_health = get_provider_health()
+    ready = db_ready and provider_health.get("required_live_providers_healthy", True)
     return {
         "status": "ready" if ready else "not_ready",
         "ready": ready,
         "db_ready": db_ready,
+        "providers": provider_health,
         "active_sessions": len([s for s in sessions.values() if s.get("status") == "running"]),
     }
 
