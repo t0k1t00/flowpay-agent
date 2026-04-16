@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Suppliers — PayGentic</title>
+<title>Suppliers — Flowpay</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
@@ -15,8 +15,8 @@
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
   body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:14px;line-height:1.6;}
   .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:56px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
-  .logo{font-family:var(--font-head);font-size:18px;font-weight:800;letter-spacing:-0.5px;color:var(--accent);display:flex;align-items:center;gap:8px;}
-  .logo-dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:pulse 2s infinite;}
+  .logo{font-family:var(--font-head);font-size:18px;font-weight:800;letter-spacing:-0.5px;color:var(--accent);display:flex;align-items:center;gap:0;text-decoration:none;}
+  .logo-img{width:50px;height:50px;object-fit:contain;flex-shrink:0;filter:drop-shadow(0 0 10px rgba(110,231,183,0.3));}
   @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}
   .nav-links{display:flex;gap:4px;}
   .nav-link{font-family:var(--font-head);font-size:12px;font-weight:600;text-decoration:none;color:var(--muted);padding:6px 14px;border-radius:var(--radius-sm);transition:all 0.15s;letter-spacing:0.3px;}
@@ -85,10 +85,11 @@
 </head>
 <body>
 <div class="topbar">
-  <div class="logo"><div class="logo-dot"></div>PayGentic</div>
+  <a href="index.html" class="logo"><img src="../branding/Minimal_Flowpay_Logo.png" alt="Logo" class="logo-img"/></a>
   <nav class="nav-links">
     <a href="index.html" class="nav-link">Dashboard</a>
     <a href="suppliers.html" class="nav-link active">Suppliers</a>
+    <a href="a2a.html" class="nav-link">A2A Market</a>
     <a href="audit.html" class="nav-link">Audit Trail</a>
     <a href="approvals.html" class="nav-link">Approvals</a>
     <a href="settings.html" class="nav-link">Settings</a>
@@ -146,7 +147,13 @@
 </div>
 
 <script>
-const API_BASE = localStorage.getItem('paygenticApiBase') || 'http://localhost:8000';
+const API_BASE = localStorage.getItem('flowpayApiBase') || localStorage.getItem('paygenticApiBase') || 'http://localhost:8000';
+const API_KEY = localStorage.getItem('flowpayApiKey') || localStorage.getItem('paygenticApiKey') || '';
+
+function withAuthHeaders(headers = {}) {
+  if (!API_KEY) return headers;
+  return { ...headers, 'x-api-key': API_KEY };
+}
 
 const state = {
   suppliers: [],
@@ -163,10 +170,10 @@ function formatINR(value) {
 function fetchJson(path, options = {}) {
   return fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: {
+    headers: withAuthHeaders({
       'Content-Type': 'application/json',
       ...(options.headers || {})
-    }
+    })
   }).then(async (response) => {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.detail || `Request failed (${response.status})`);
