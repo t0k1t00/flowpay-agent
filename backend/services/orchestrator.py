@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+import os
 from typing import Awaitable, Callable, Dict, List, Optional, Protocol
+
+import httpx
 
 from models import EscrowRecord, ParsedRequest, Supplier
 from services.audit_service import log_action
@@ -31,6 +34,7 @@ class AgentContext:
     selected_supplier: Optional[Supplier] = None
     escrow: Optional[EscrowRecord] = None
     email_dispatch_count: int = 0
+    executed_tools: List[str] = field(default_factory=list)
 
 
 class AgentTool(Protocol):
@@ -38,6 +42,89 @@ class AgentTool(Protocol):
 
     async def run(self, context: AgentContext, emit: EventEmitter) -> AgentContext:
         ...
+
+
+class AgentDecisionEngine:
+    """Chooses the next tool using an LLM when available, with safe heuristic fallback."""
+
+    def __init__(self) -> None:
+        self.openai_api_key = os.getenv("OPENAI_API_KEY", "").strip()
+        self.model = os.getenv("AGENT_MODEL", "gpt-4o-mini").strip()
+
+    def _heuristic_choice(self, context: AgentContext, available_tools: List[str]) -> str:
+        preferred = [
+            (context.parsed is None, "parse_intent"),
+            (context.parsed is not None and not context.suppliers, "supplier_discovery"),
+            (context.suppliers and context.selected_supplier is None and context.escrow is None, "supplier_enrichment"),
+            (context.suppliers and context.email_dispatch_count == 0, "quote_dispatch"),
+            (context.suppliers and context.escrow is None, "escrow_management"),
+        ]
+        for condition, tool_name in preferred:
+            if condition and tool_name in available_tools:
+                return tool_name
+        return available_tools[0]
+
+    async def decide(
+        self,
+        context: AgentContext,
+        available_tools: List[str],
+        observation: str,
+    ) -> Dict[str, str]:
+        heuristic = self._heuristic_choice(context, available_tools)
+        if not self.openai_api_key:
+            return {
+                "tool": heuristic,
+                "source": "heuristic",
+                "reason": "OPENAI_API_KEY not configured",
+            }
+
+        prompt = (
+            "You are a procurement agent controller. Choose exactly one tool name from the provided list. "
+            "Return only the tool name, no extra text.\n"
+            f"available_tools={available_tools}\n"
+            f"context={{parsed:{context.parsed is not None}, suppliers:{len(context.suppliers)}, "
+            f"emails:{context.email_dispatch_count}, escrow_created:{context.escrow is not None}}}\n"
+            f"observation={observation}"
+        )
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": "You choose the next tool in an autonomous workflow."},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0,
+        }
+        headers = {
+            "Authorization": f"Bearer {self.openai_api_key}",
+            "Content-Type": "application/json",
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers)
+            response.raise_for_status()
+            body = response.json()
+            content = (
+                body.get("choices", [{}])[0]
+                .get("message", {})
+                .get("content", "")
+                .strip()
+            )
+            for tool_name in available_tools:
+                if tool_name == content:
+                    return {
+                        "tool": tool_name,
+                        "source": "llm",
+                        "reason": "Selected by LLM planner",
+                    }
+        except Exception:
+            pass
+
+        return {
+            "tool": heuristic,
+            "source": "heuristic_fallback",
+            "reason": "LLM planner unavailable or returned invalid tool",
+        }
 
 
 class ParseIntentTool:
@@ -237,9 +324,9 @@ class EscrowTool:
 
 
 class ProcurementOrchestrator:
-    """Simple tool-chain orchestrator with swappable tool interfaces."""
+    """Agent-loop orchestrator with dynamic tool selection."""
 
-    def __init__(self, tools: Optional[List[AgentTool]] = None):
+    def __init__(self, tools: Optional[List[AgentTool]] = None, max_steps: int = 12):
         self.tools: List[AgentTool] = tools or [
             ParseIntentTool(),
             SupplierDiscoveryTool(),
@@ -247,13 +334,92 @@ class ProcurementOrchestrator:
             QuoteDispatchTool(),
             EscrowTool(),
         ]
+        self.tool_map: Dict[str, AgentTool] = {tool.name: tool for tool in self.tools}
+        self.decision_engine = AgentDecisionEngine()
+        self.max_steps = max_steps
+
+    @staticmethod
+    def _is_complete(context: AgentContext) -> bool:
+        return context.escrow is not None
+
+    @staticmethod
+    def _tool_ready(tool_name: str, context: AgentContext) -> bool:
+        if tool_name == "parse_intent":
+            return context.parsed is None
+        if tool_name == "supplier_discovery":
+            return context.parsed is not None and not context.suppliers
+        if tool_name == "supplier_enrichment":
+            return context.parsed is not None and bool(context.suppliers)
+        if tool_name == "quote_dispatch":
+            return context.parsed is not None and bool(context.suppliers) and context.email_dispatch_count == 0
+        if tool_name == "escrow_management":
+            return context.parsed is not None and bool(context.suppliers) and context.escrow is None
+        return True
+
+    def _eligible_tools(self, context: AgentContext) -> List[str]:
+        return [name for name in self.tool_map if self._tool_ready(name, context)]
 
     async def run(self, query: str, session_id: str, emit: EventEmitter) -> AgentContext:
         context = AgentContext(session_id=session_id, query=query)
+        observation = "Workflow initialized"
 
         try:
-            for tool in self.tools:
+            for step in range(1, self.max_steps + 1):
+                if self._is_complete(context):
+                    break
+
+                available_tools = self._eligible_tools(context)
+                if not available_tools:
+                    raise RuntimeError("No eligible tools remain for agent progression")
+
+                decision = await self.decision_engine.decide(context, available_tools, observation)
+                chosen = decision["tool"]
+                if chosen not in available_tools:
+                    chosen = available_tools[0]
+
+                await emit(
+                    {
+                        "type": "agent_reasoning",
+                        "session_id": session_id,
+                        "step": step,
+                        "available_tools": available_tools,
+                        "decision": decision,
+                        "ts": _now(),
+                    }
+                )
+
+                await emit(
+                    {
+                        "type": "tool_call",
+                        "session_id": session_id,
+                        "tool": chosen,
+                        "step": step,
+                        "ts": _now(),
+                    }
+                )
+
+                tool = self.tool_map[chosen]
                 context = await tool.run(context, emit)
+                context.executed_tools.append(chosen)
+
+                observation = (
+                    f"Executed {chosen}; suppliers={len(context.suppliers)}, "
+                    f"emails={context.email_dispatch_count}, escrow={context.escrow.id if context.escrow else 'none'}"
+                )
+                await emit(
+                    {
+                        "type": "tool_result",
+                        "session_id": session_id,
+                        "tool": chosen,
+                        "step": step,
+                        "status": "ok",
+                        "observation": observation,
+                        "ts": _now(),
+                    }
+                )
+
+            if not self._is_complete(context):
+                raise RuntimeError("Agent loop ended before escrow creation")
 
             await emit(
                 {
@@ -264,6 +430,7 @@ class ProcurementOrchestrator:
                         "emails": context.email_dispatch_count,
                         "selected_supplier": context.selected_supplier.company_name if context.selected_supplier else None,
                         "escrow_id": context.escrow.id if context.escrow else None,
+                        "executed_tools": context.executed_tools,
                     },
                     "ts": _now(),
                 }
@@ -276,6 +443,7 @@ class ProcurementOrchestrator:
                     "type": "pipeline_error",
                     "session_id": session_id,
                     "message": str(exc),
+                    "error_type": exc.__class__.__name__,
                     "ts": _now(),
                 }
             )
