@@ -4,6 +4,7 @@ In production: Exa API search + Firecrawl scraping + Apollo enrichment.
 For demo: rich mock dataset that mimics real API responses.
 """
 
+import logging
 import os
 import re
 from typing import Any, Dict, List
@@ -11,6 +12,9 @@ from typing import Any, Dict, List
 import httpx
 
 from models import Supplier, ParsedRequest
+from services.payment_required import post_json_with_402_retry
+from services.reliability import post_json_with_retries
+from services.runtime_config import strict_integrations, use_live_apis, use_locus_wrapped_apis
 from services.spending_controls import charge_api_usage
 
 
@@ -83,6 +87,9 @@ MOCK_SUPPLIERS = {
 }
 
 
+logger = logging.getLogger("flowpay.supplier_search")
+
+
 def _material_key(material: str) -> str:
     normalized = material.lower().strip()
     if normalized in MOCK_SUPPLIERS:
@@ -95,17 +102,15 @@ def _material_key(material: str) -> str:
     return "cotton yarn"
 
 
-def _use_live_apis() -> bool:
-    return os.getenv("USE_LIVE_APIS", "false").lower() == "true"
-
-
-def _use_locus_wrapped_apis() -> bool:
-    return os.getenv("USE_LOCUS_WRAPPED_APIS", "false").lower() == "true"
-
-
 def _locus_api_base() -> str:
     raw = os.getenv("LOCUS_API_BASE", "https://api.paywithlocus.com/api").strip()
     return raw[:-1] if raw.endswith("/") else raw
+
+
+def _degrade_or_raise(message: str, exc: Exception = None) -> None:
+    if strict_integrations():
+        raise RuntimeError(message) from exc
+    logger.warning("integration degraded: %s", message)
 
 
 def _locus_wrapped_request(provider: str, endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -118,11 +123,12 @@ def _locus_wrapped_request(provider: str, endpoint: str, payload: Dict[str, Any]
         "Content-Type": "application/json",
     }
 
-    response = httpx.post(
-        f"{_locus_api_base()}/wrapped/{provider}/{endpoint}",
-        json=payload,
+    response = post_json_with_retries(
+        url=f"{_locus_api_base()}/wrapped/{provider}/{endpoint}",
+        payload=payload,
         headers=headers,
         timeout=15,
+        circuit_key=f"wrapped_{provider}",
     )
     response.raise_for_status()
 
@@ -190,20 +196,22 @@ def _build_supplier_from_url(url: str, parsed: ParsedRequest, idx: int) -> Suppl
     )
 
 
-def _live_exa_search(parsed: ParsedRequest) -> List[str]:
+def _live_exa_search(parsed: ParsedRequest, session_id: str) -> List[str]:
     query = f"{parsed.material} suppliers India wholesale {parsed.location or ''}".strip()
     payload = {
         "query": query,
         "numResults": 8,
     }
 
-    if _use_locus_wrapped_apis():
+    if use_locus_wrapped_apis():
         data = _locus_wrapped_request("exa", "search", payload)
         rows = _extract_result_rows(data)
         return [item.get("url") for item in rows if item.get("url")]
 
     exa_key = os.getenv("EXA_API_KEY")
     if not exa_key or "your_" in exa_key:
+        if strict_integrations():
+            raise RuntimeError("EXA_API_KEY is required in strict live mode")
         return []
 
     headers = {
@@ -211,8 +219,15 @@ def _live_exa_search(parsed: ParsedRequest) -> List[str]:
         "Content-Type": "application/json",
     }
 
-    response = httpx.post("https://api.exa.ai/search", json=payload, headers=headers, timeout=10)
-    response.raise_for_status()
+    response = post_json_with_402_retry(
+        url="https://api.exa.ai/search",
+        payload=payload,
+        headers=headers,
+        provider="exa",
+        session_id=session_id,
+        timeout=10,
+        circuit_key="exa",
+    ).response
 
     data = response.json()
     results = data.get("results", [])
@@ -220,8 +235,8 @@ def _live_exa_search(parsed: ParsedRequest) -> List[str]:
     return urls
 
 
-def _live_firecrawl_scrape(urls: List[str]) -> List[str]:
-    if _use_locus_wrapped_apis():
+def _live_firecrawl_scrape(urls: List[str], session_id: str) -> List[str]:
+    if use_locus_wrapped_apis():
         confirmed_urls: List[str] = []
         for url in urls:
             payload = {
@@ -231,12 +246,16 @@ def _live_firecrawl_scrape(urls: List[str]) -> List[str]:
             try:
                 _locus_wrapped_request("firecrawl", "scrape", payload)
                 confirmed_urls.append(url)
-            except Exception:
+            except Exception as exc:
+                if strict_integrations():
+                    raise RuntimeError(f"Firecrawl wrapped scrape failed for {url}") from exc
                 continue
         return confirmed_urls or urls
 
     firecrawl_key = os.getenv("FIRECRAWL_API_KEY")
     if not firecrawl_key or "your_" in firecrawl_key:
+        if strict_integrations():
+            raise RuntimeError("FIRECRAWL_API_KEY is required in strict live mode")
         return urls
 
     headers = {
@@ -250,9 +269,28 @@ def _live_firecrawl_scrape(urls: List[str]) -> List[str]:
             "url": url,
             "formats": ["markdown"],
         }
-        response = httpx.post("https://api.firecrawl.dev/v1/scrape", json=payload, headers=headers, timeout=12)
+        try:
+            response = post_json_with_402_retry(
+                url="https://api.firecrawl.dev/v1/scrape",
+                payload=payload,
+                headers=headers,
+                provider="firecrawl",
+                session_id=session_id,
+                timeout=12,
+                circuit_key="firecrawl",
+            ).response
+        except Exception as exc:
+            if strict_integrations():
+                raise RuntimeError(f"Firecrawl scrape failed for {url}") from exc
+            logger.warning("firecrawl degraded for %s: %s", url, str(exc))
+            continue
+
         if response.status_code < 400:
             confirmed_urls.append(url)
+
+    if not confirmed_urls and strict_integrations():
+        raise RuntimeError("Firecrawl returned no successful scrape responses")
+
     return confirmed_urls or urls
 
 
@@ -280,10 +318,11 @@ def search_suppliers(parsed: ParsedRequest, session_id: str) -> List[Supplier]:
     )
 
     urls: List[str] = []
-    if _use_live_apis():
+    if use_live_apis():
         try:
-            urls = _live_exa_search(parsed)
-        except Exception:
+            urls = _live_exa_search(parsed, session_id=session_id)
+        except Exception as exc:
+            _degrade_or_raise("live Exa search failed, switching to deterministic supplier catalog", exc)
             urls = []
 
     charge_api_usage(
@@ -293,17 +332,20 @@ def search_suppliers(parsed: ParsedRequest, session_id: str) -> List[Supplier]:
         metadata={"material": parsed.material, "mode": "scrape"},
     )
 
-    if _use_live_apis() and urls:
+    if use_live_apis() and urls:
         try:
-            scraped_urls = _live_firecrawl_scrape(urls)
+            scraped_urls = _live_firecrawl_scrape(urls, session_id=session_id)
             live_suppliers = [_build_supplier_from_url(url, parsed, idx) for idx, url in enumerate(scraped_urls)]
             if live_suppliers:
                 filtered_live = [s for s in live_suppliers if s.price_per_kg <= parsed.max_budget_per_kg * 1.2]
                 return filtered_live if filtered_live else live_suppliers
-        except Exception:
-            pass
+        except Exception as exc:
+            _degrade_or_raise("live supplier scrape/rank failed, switching to deterministic supplier catalog", exc)
 
     category = _material_key(parsed.material)
+    if use_live_apis() and not urls:
+        logger.warning("live mode produced no supplier URLs; using deterministic catalog")
+
     suppliers = [item.model_copy() for item in MOCK_SUPPLIERS.get(category, MOCK_SUPPLIERS["cotton yarn"])]
     filtered = [s for s in suppliers if s.price_per_kg <= parsed.max_budget_per_kg * 1.1]
     return filtered if filtered else suppliers
