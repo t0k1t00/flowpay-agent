@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>A2A Market — Flowpay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root{
+    --bg:#0a0b0f;--bg2:#111318;--bg3:#181b22;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+    --text:#e8eaf0;--muted:#7a8099;--accent:#6ee7b7;--accent2:#38bdf8;--amber:#fbbf24;--coral:#f87171;--green:#4ade80;
+    --font-head:'Syne',sans-serif;--font-body:'Manrope',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:12px;--radius-sm:8px;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:14px;line-height:1.6;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:56px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+  .logo{display:flex;align-items:center;gap:0;text-decoration:none;}
+  .logo-img{width:50px;height:50px;object-fit:contain;flex-shrink:0;filter:drop-shadow(0 0 10px rgba(110,231,183,0.3));}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}
+  .nav-links{display:flex;gap:4px;}
+  .nav-link{font-family:var(--font-head);font-size:12px;font-weight:600;text-decoration:none;color:var(--muted);padding:6px 14px;border-radius:var(--radius-sm);transition:all 0.15s;letter-spacing:0.3px;}
+  .nav-link:hover{color:var(--text);background:var(--bg3);}
+  .nav-link.active{color:var(--accent);background:rgba(110,231,183,0.08);}
+  .status-pill{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;color:var(--accent2);background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.2);border-radius:20px;padding:4px 12px;}
+  .status-dot{width:6px;height:6px;border-radius:50%;background:var(--accent2);animation:pulse 1.5s infinite;}
+
+  .page{max-width:1240px;margin:0 auto;padding:30px 24px 40px;}
+  .page-title{font-family:var(--font-head);font-size:24px;font-weight:800;letter-spacing:-0.3px;}
+  .page-sub{font-size:13px;color:var(--muted);margin-top:4px;}
+
+  .layout{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px;}
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  .card-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .card-title{font-family:var(--font-head);font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+  .card-body{padding:14px 16px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .field{display:flex;flex-direction:column;gap:6px;}
+  .field.span2{grid-column:1 / -1;}
+  .label{font-size:11px;color:var(--muted);}
+  .input,.textarea,.select{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-body);font-size:12px;padding:9px 10px;outline:none;}
+  .input:focus,.textarea:focus,.select:focus{border-color:rgba(110,231,183,0.35);}
+  .textarea{min-height:84px;resize:vertical;font-family:var(--font-mono);}
+
+  .btn-row{display:flex;gap:8px;margin-top:12px;}
+  .btn{border:none;border-radius:var(--radius-sm);padding:9px 12px;cursor:pointer;font-family:var(--font-head);font-size:11px;font-weight:700;letter-spacing:0.4px;transition:all 0.16s;}
+  .btn.primary{background:var(--accent);color:#08110d;}
+  .btn.primary:hover{background:#53dfa8;}
+  .btn.ghost{background:var(--bg3);border:1px solid var(--border2);color:var(--muted);}
+  .btn.ghost:hover{color:var(--text);}
+
+  .chip{font-family:var(--font-mono);font-size:10px;padding:3px 8px;border-radius:999px;border:1px solid rgba(56,189,248,0.2);background:rgba(56,189,248,0.08);color:var(--accent2);}
+  .empty{padding:18px;border:1px dashed var(--border2);border-radius:var(--radius-sm);font-size:12px;color:var(--muted);text-align:center;}
+
+  .list{display:flex;flex-direction:column;gap:10px;max-height:420px;overflow:auto;}
+  .item{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;}
+  .item-top{display:flex;justify-content:space-between;gap:10px;align-items:center;}
+  .item-title{font-family:var(--font-head);font-size:13px;font-weight:700;color:var(--text);}
+  .item-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+  .mono{font-family:var(--font-mono);font-size:11px;color:var(--text);}
+  .pill{font-family:var(--font-mono);font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid transparent;}
+  .pill.active{color:var(--green);background:rgba(74,222,128,0.1);border-color:rgba(74,222,128,0.2);}
+  .pill.completed{color:var(--green);background:rgba(74,222,128,0.1);border-color:rgba(74,222,128,0.2);}
+  .pill.failed{color:var(--coral);background:rgba(248,113,113,0.1);border-color:rgba(248,113,113,0.2);}
+  .pill.running{color:var(--amber);background:rgba(251,191,36,0.1);border-color:rgba(251,191,36,0.2);}
+
+  .toast{margin-top:10px;font-size:12px;color:var(--muted);}
+
+  @media (max-width:980px){
+    .nav-links{display:none;}
+    .layout{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="index.html" class="logo"><img src="../branding/Minimal_Flowpay_Logo.png" alt="Logo" class="logo-img"/></a>
+  <nav class="nav-links">
+    <a href="index.html" class="nav-link">Dashboard</a>
+    <a href="suppliers.html" class="nav-link">Suppliers</a>
+    <a href="a2a.html" class="nav-link active">A2A Market</a>
+    <a href="audit.html" class="nav-link">Audit Trail</a>
+    <a href="approvals.html" class="nav-link">Approvals</a>
+    <a href="settings.html" class="nav-link">Settings</a>
+  </nav>
+  <div class="status-pill"><div class="status-dot"></div>Agent-to-Agent</div>
+</div>
+
+<div class="page">
+  <div class="page-title">A2A Marketplace</div>
+  <div class="page-sub">Register services, execute paid cross-agent tasks, and inspect execution history.</div>
+
+  <div class="layout">
+    <section class="card">
+      <div class="card-head">
+        <div class="card-title">Register Service</div>
+        <span class="chip">POST /api/a2a/services/register</span>
+      </div>
+      <div class="card-body">
+        <div class="grid">
+          <label class="field"><span class="label">Service Name</span><input id="svcName" class="input" placeholder="Invoice OCR"/></label>
+          <label class="field"><span class="label">Capability</span><input id="svcCapability" class="input" placeholder="document_ocr"/></label>
+          <label class="field"><span class="label">Price Per Unit</span><input id="svcPrice" class="input" type="number" step="0.01" value="5"/></label>
+          <label class="field"><span class="label">Currency</span><input id="svcCurrency" class="input" value="USD"/></label>
+          <label class="field"><span class="label">Seller Agent ID</span><input id="svcSeller" class="input" value="seller_agent_01"/></label>
+          <label class="field"><span class="label">Session ID</span><input id="svcSession" class="input" value="a2a_ui"/></label>
+          <label class="field span2"><span class="label">Endpoint URL (optional)</span><input id="svcEndpoint" class="input" placeholder="https://agent.example.com/execute"/></label>
+          <label class="field span2"><span class="label">Metadata JSON (optional)</span><textarea id="svcMetadata" class="textarea" placeholder='{"latency_sla_ms": 500}'></textarea></label>
+        </div>
+        <div class="btn-row">
+          <button class="btn primary" onclick="registerService()">Register Service</button>
+          <button class="btn ghost" onclick="loadServices()">Refresh Services</button>
+        </div>
+        <div class="toast" id="serviceToast"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div class="card-title">Execute Task</div>
+        <span class="chip">POST /api/a2a/tasks/execute</span>
+      </div>
+      <div class="card-body">
+        <div class="grid">
+          <label class="field"><span class="label">Service ID</span><input id="taskService" class="input" placeholder="svc_xxxxx"/></label>
+          <label class="field"><span class="label">Requester Agent ID</span><input id="taskRequester" class="input" value="buyer_agent_01"/></label>
+          <label class="field"><span class="label">Units</span><input id="taskUnits" class="input" type="number" step="0.01" value="1"/></label>
+          <label class="field"><span class="label">Session ID</span><input id="taskSession" class="input" value="a2a_ui"/></label>
+          <label class="field span2"><span class="label">Payload JSON (optional)</span><textarea id="taskPayload" class="textarea" placeholder='{"document_url": "https://..."}'></textarea></label>
+        </div>
+        <div class="btn-row">
+          <button class="btn primary" onclick="executeTask()">Execute Task</button>
+          <button class="btn ghost" onclick="loadTasks()">Refresh Tasks</button>
+        </div>
+        <div class="toast" id="taskToast"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div class="card-title">Services</div>
+        <span class="chip">GET /api/a2a/services</span>
+      </div>
+      <div class="card-body">
+        <div class="grid" style="margin-bottom:10px;">
+          <label class="field"><span class="label">Capability Filter</span><input id="filterCapability" class="input" placeholder="optional"/></label>
+          <label class="field"><span class="label">Max Price</span><input id="filterMaxPrice" class="input" type="number" step="0.01" placeholder="optional"/></label>
+          <label class="field"><span class="label">Status</span>
+            <select id="filterStatus" class="select">
+              <option value="active">active</option>
+              <option value="inactive">inactive</option>
+              <option value="">all</option>
+            </select>
+          </label>
+        </div>
+        <div class="btn-row" style="margin-top:0;">
+          <button class="btn ghost" onclick="loadServices()">Load Services</button>
+        </div>
+        <div id="servicesList" class="list" style="margin-top:10px;"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div class="card-title">Tasks</div>
+        <span class="chip">GET /api/a2a/tasks</span>
+      </div>
+      <div class="card-body">
+        <div class="grid" style="margin-bottom:10px;">
+          <label class="field"><span class="label">Limit</span><input id="tasksLimit" class="input" type="number" value="100"/></label>
+          <label class="field"><span class="label">Session ID Filter</span><input id="tasksSession" class="input" placeholder="optional"/></label>
+        </div>
+        <div class="btn-row" style="margin-top:0;">
+          <button class="btn ghost" onclick="loadTasks()">Load Tasks</button>
+        </div>
+        <div id="tasksList" class="list" style="margin-top:10px;"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+const API_BASE = localStorage.getItem('flowpayApiBase') || localStorage.getItem('paygenticApiBase') || 'http://localhost:8000';
+const API_KEY = localStorage.getItem('flowpayApiKey') || localStorage.getItem('paygenticApiKey') || '';
+
+function withAuthHeaders(headers = {}) {
+  if (!API_KEY) return headers;
+  return { ...headers, 'x-api-key': API_KEY };
+}
+
+function parseOptionalJson(raw, fieldName) {
+  const text = String(raw || '').trim();
+  if (!text) return null;
+  try {
+    const parsed = JSON.parse(text);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      throw new Error(`${fieldName} must be a JSON object`);
+    }
+    return parsed;
+  } catch (error) {
+    throw new Error(`${fieldName}: ${error.message}`);
+  }
+}
+
+async function apiJson(path, options = {}) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: withAuthHeaders({
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.detail || `Request failed (${response.status})`);
+  }
+  return payload;
+}
+
+function setToast(id, message, isError = false) {
+  const el = document.getElementById(id);
+  el.textContent = message;
+  el.style.color = isError ? 'var(--coral)' : 'var(--muted)';
+}
+
+function statusPill(status) {
+  const value = String(status || '').toLowerCase();
+  if (value === 'completed') return 'completed';
+  if (value === 'failed') return 'failed';
+  if (value === 'running') return 'running';
+  return 'active';
+}
+
+function renderServices(items) {
+  const container = document.getElementById('servicesList');
+  if (!items.length) {
+    container.innerHTML = '<div class="empty">No services found for the selected filters.</div>';
+    return;
+  }
+
+  container.innerHTML = items.map((service) => `
+    <article class="item">
+      <div class="item-top">
+        <div>
+          <div class="item-title">${service.name}</div>
+          <div class="item-sub">${service.capability} • ${service.id}</div>
+        </div>
+        <span class="pill ${statusPill(service.status)}">${service.status || 'active'}</span>
+      </div>
+      <div class="item-sub">Seller: ${service.seller_agent_id || '--'} • Session: ${service.session_id || '--'}</div>
+      <div class="mono" style="margin-top:6px;">${service.price_per_unit} ${service.currency || 'USD'} per unit</div>
+      ${service.endpoint_url ? `<div class="item-sub">Endpoint: ${service.endpoint_url}</div>` : ''}
+    </article>
+  `).join('');
+}
+
+function renderTasks(items) {
+  const container = document.getElementById('tasksList');
+  if (!items.length) {
+    container.innerHTML = '<div class="empty">No tasks found for the selected filters.</div>';
+    return;
+  }
+
+  container.innerHTML = items.map((task) => `
+    <article class="item">
+      <div class="item-top">
+        <div>
+          <div class="item-title">Task ${task.id}</div>
+          <div class="item-sub">Service: ${task.service_id}</div>
+        </div>
+        <span class="pill ${statusPill(task.status)}">${task.status || '--'}</span>
+      </div>
+      <div class="item-sub">Requester: ${task.requester_agent_id || '--'} • Seller: ${task.seller_agent_id || '--'}</div>
+      <div class="mono" style="margin-top:6px;">Units: ${task.units} • Total: ${task.total_amount} ${task.currency || 'USD'}</div>
+      <div class="item-sub">Session: ${task.session_id || '--'} • Created: ${task.created_at || '--'}</div>
+    </article>
+  `).join('');
+}
+
+async function loadServices() {
+  const capability = document.getElementById('filterCapability').value.trim();
+  const maxPrice = document.getElementById('filterMaxPrice').value.trim();
+  const status = document.getElementById('filterStatus').value.trim();
+
+  const params = new URLSearchParams();
+  if (capability) params.set('capability', capability);
+  if (maxPrice) params.set('max_price', maxPrice);
+  if (status) params.set('status', status);
+
+  try {
+    const query = params.toString();
+    const services = await apiJson(`/api/a2a/services${query ? `?${query}` : ''}`);
+    renderServices(Array.isArray(services) ? services : []);
+    setToast('serviceToast', `${Array.isArray(services) ? services.length : 0} service(s) loaded.`);
+  } catch (error) {
+    setToast('serviceToast', error.message, true);
+    renderServices([]);
+  }
+}
+
+async function loadTasks() {
+  const limit = document.getElementById('tasksLimit').value.trim() || '100';
+  const sessionId = document.getElementById('tasksSession').value.trim();
+
+  const params = new URLSearchParams();
+  params.set('limit', limit);
+  if (sessionId) params.set('session_id', sessionId);
+
+  try {
+    const tasks = await apiJson(`/api/a2a/tasks?${params.toString()}`);
+    renderTasks(Array.isArray(tasks) ? tasks : []);
+    setToast('taskToast', `${Array.isArray(tasks) ? tasks.length : 0} task(s) loaded.`);
+  } catch (error) {
+    setToast('taskToast', error.message, true);
+    renderTasks([]);
+  }
+}
+
+async function registerService() {
+  try {
+    const metadata = parseOptionalJson(document.getElementById('svcMetadata').value, 'Metadata JSON');
+    const payload = {
+      name: document.getElementById('svcName').value.trim(),
+      capability: document.getElementById('svcCapability').value.trim(),
+      price_per_unit: Number(document.getElementById('svcPrice').value || 0),
+      seller_agent_id: document.getElementById('svcSeller').value.trim(),
+      session_id: document.getElementById('svcSession').value.trim() || 'a2a_ui',
+      endpoint_url: document.getElementById('svcEndpoint').value.trim() || null,
+      currency: (document.getElementById('svcCurrency').value.trim() || 'USD').toUpperCase(),
+      metadata
+    };
+
+    if (!payload.name || !payload.capability || !payload.seller_agent_id || payload.price_per_unit <= 0) {
+      throw new Error('Name, capability, seller agent ID, and positive price are required.');
+    }
+
+    const created = await apiJson('/api/a2a/services/register', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+
+    document.getElementById('taskService').value = created.id;
+    setToast('serviceToast', `Service registered: ${created.id}`);
+    await loadServices();
+  } catch (error) {
+    setToast('serviceToast', error.message, true);
+  }
+}
+
+async function executeTask() {
+  try {
+    const payloadJson = parseOptionalJson(document.getElementById('taskPayload').value, 'Payload JSON');
+    const payload = {
+      service_id: document.getElementById('taskService').value.trim(),
+      requester_agent_id: document.getElementById('taskRequester').value.trim(),
+      units: Number(document.getElementById('taskUnits').value || 0),
+      payload: payloadJson,
+      session_id: document.getElementById('taskSession').value.trim() || 'a2a_ui'
+    };
+
+    if (!payload.service_id || !payload.requester_agent_id || payload.units <= 0) {
+      throw new Error('Service ID, requester agent ID, and positive units are required.');
+    }
+
+    const task = await apiJson('/api/a2a/tasks/execute', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+
+    setToast('taskToast', `Task executed: ${task.id} (${task.status})`);
+    await loadTasks();
+  } catch (error) {
+    setToast('taskToast', error.message, true);
+  }
+}
+
+loadServices();
+loadTasks();
+</script>
+</body>
+</html>
