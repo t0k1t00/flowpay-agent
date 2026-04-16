@@ -16,7 +16,7 @@ load_dotenv()
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from database.db import init_db, insert_agent_event, list_sessions, upsert_session
+from database.db import init_db, insert_agent_event, is_db_ready, list_sessions, upsert_session
 from models import (
     ApprovalRequest,
     EmailRequest,
@@ -161,6 +161,15 @@ def _to_float(raw: str, fallback: float) -> float:
         return fallback
 
 
+def _extract_bearer_token(auth_header: str) -> str:
+    prefix = "bearer "
+    if not auth_header:
+        return ""
+    if auth_header.lower().startswith(prefix):
+        return auth_header[len(prefix):].strip()
+    return ""
+
+
 async def emit_wallet_state(session_id: str) -> None:
     await broadcast_event(
         {
@@ -196,6 +205,17 @@ async def run_pipeline(session_id: str, query: str) -> None:
 # ── WebSocket ──────────────────────────────────────────────
 @app.websocket("/ws/logs")
 async def websocket_logs(websocket: WebSocket) -> None:
+    if runtime_cfg.require_api_key:
+        supplied = websocket.headers.get("x-api-key", "").strip()
+        if not supplied:
+            supplied = _extract_bearer_token(websocket.headers.get("authorization", ""))
+        if not supplied:
+            supplied = websocket.query_params.get("api_key", "").strip()
+
+        if not runtime_cfg.api_key or supplied != runtime_cfg.api_key:
+            await websocket.close(code=1008, reason="Unauthorized")
+            return
+
     await manager.connect(websocket)
     await manager.send_to(websocket, json.dumps({"type": "connected", "ts": now()}))
     try:
@@ -530,12 +550,26 @@ async def get_audit(session_id: Optional[str] = None):
 # ── Health ─────────────────────────────────────────────────
 @app.get("/health")
 async def health() -> Dict[str, Any]:
+    db_ready = is_db_ready()
     return {
-        "status": "ok",
+        "status": "ok" if db_ready else "degraded",
         "version": "1.1.0",
         "active_sessions": len([s for s in sessions.values() if s.get("status") == "running"]),
         "auth_enabled": runtime_cfg.require_api_key,
         "live_integrations": runtime_cfg.use_live_apis,
+        "db_ready": db_ready,
+    }
+
+
+@app.get("/health/ready")
+async def health_ready() -> Dict[str, Any]:
+    db_ready = is_db_ready()
+    ready = db_ready
+    return {
+        "status": "ready" if ready else "not_ready",
+        "ready": ready,
+        "db_ready": db_ready,
+        "active_sessions": len([s for s in sessions.values() if s.get("status") == "running"]),
     }
 
 
