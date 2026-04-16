@@ -5,6 +5,7 @@ FastAPI Backend
 
 import asyncio
 import json
+import logging
 import uuid
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -15,7 +16,7 @@ load_dotenv()
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from database.db import init_db
+from database.db import init_db, insert_agent_event, list_sessions, upsert_session
 from models import (
     ApprovalRequest,
     EmailRequest,
@@ -50,17 +51,35 @@ from services.laso_service import (
 )
 from services.orchestrator import ProcurementOrchestrator
 from services.parser import parse_request
+from services.runtime_config import load_runtime_config
+from services.security import ApiKeyMiddleware
 from services.spending_controls import (
     get_spending_controls,
     get_wallet_ledger,
     get_wallet_state,
+    hydrate_wallet_state,
+    set_payment_event_hook,
     topup_wallet,
     update_spending_controls,
 )
 from services.supplier_search import get_mock_suppliers
 from websocket.manager import ConnectionManager
 
-app = FastAPI(title="PayGentic API", version="1.1.0")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger("flowpay")
+
+runtime_cfg = load_runtime_config()
+app = FastAPI(
+    title="PayGentic API",
+    version="1.1.0",
+    docs_url="/docs" if runtime_cfg.docs_enabled else None,
+    redoc_url="/redoc" if runtime_cfg.docs_enabled else None,
+)
+
+app.add_middleware(ApiKeyMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -77,6 +96,42 @@ sessions: Dict[str, Dict[str, Any]] = {}
 @app.on_event("startup")
 async def startup() -> None:
     init_db()
+    hydrate_wallet_state()
+    for saved in list_sessions():
+        sid = str(saved.get("id"))
+        sessions[sid] = {
+            "session_id": sid,
+            "query": saved.get("query"),
+            "status": saved.get("status"),
+            "created_at": saved.get("created_at"),
+            "restored": True,
+        }
+
+    def _payment_hook(entry: Dict[str, Any]) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(
+                broadcast_event(
+                    {
+                        "type": "payment_event",
+                        "session_id": entry.get("session_id", "manual"),
+                        "data": entry,
+                    }
+                )
+            )
+        except RuntimeError:
+            return
+
+    set_payment_event_hook(_payment_hook)
+
+    logger.info(
+        "startup completed",
+        extra={
+            "use_live_apis": runtime_cfg.use_live_apis,
+            "strict_integrations": runtime_cfg.strict_integrations,
+            "api_key_required": runtime_cfg.require_api_key,
+        },
+    )
 
 
 def now() -> str:
@@ -85,6 +140,14 @@ def now() -> str:
 
 async def broadcast_event(payload: Dict[str, Any]) -> None:
     payload.setdefault("ts", now())
+    try:
+        insert_agent_event(
+            session_id=str(payload.get("session_id") or "system"),
+            event_type=str(payload.get("type") or "event"),
+            payload=payload,
+        )
+    except Exception:
+        pass
     await manager.broadcast(json.dumps(payload))
 
 
@@ -111,6 +174,7 @@ async def emit_wallet_state(session_id: str) -> None:
 async def run_pipeline(session_id: str, query: str) -> None:
     try:
         sessions[session_id]["status"] = "running"
+        upsert_session(sessions[session_id])
         context = await orchestrator.run(query=query, session_id=session_id, emit=broadcast_event)
         sessions[session_id].update(
             {
@@ -120,10 +184,12 @@ async def run_pipeline(session_id: str, query: str) -> None:
                 "escrow_id": context.escrow.id if context.escrow else None,
             }
         )
+        upsert_session(sessions[session_id])
         await emit_wallet_state(session_id)
     except Exception as exc:
         sessions[session_id]["status"] = "failed"
         sessions[session_id]["error"] = str(exc)
+        upsert_session(sessions[session_id])
         log_action("pipeline_failed", "orchestrator", 0, "error", session_id)
 
 
@@ -152,6 +218,7 @@ async def request_source(req: SourcingRequest) -> Dict[str, str]:
         "status": "queued",
         "created_at": now(),
     }
+    upsert_session(sessions[session_id])
 
     asyncio.create_task(run_pipeline(session_id, req.query))
     return {"status": "started", "session_id": session_id}
@@ -467,6 +534,8 @@ async def health() -> Dict[str, Any]:
         "status": "ok",
         "version": "1.1.0",
         "active_sessions": len([s for s in sessions.values() if s.get("status") == "running"]),
+        "auth_enabled": runtime_cfg.require_api_key,
+        "live_integrations": runtime_cfg.use_live_apis,
     }
 
 
