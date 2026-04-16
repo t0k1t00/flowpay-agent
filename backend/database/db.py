@@ -107,6 +107,58 @@ def init_db():
         payload_json TEXT NOT NULL,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS virtual_cards (
+        id TEXT PRIMARY KEY,
+        provider TEXT,
+        alias TEXT,
+        merchant_lock TEXT,
+        purpose TEXT,
+        currency TEXT,
+        spend_limit REAL,
+        available_limit REAL,
+        status TEXT,
+        network TEXT,
+        masked_pan TEXT,
+        session_id TEXT,
+        integration_mode TEXT,
+        created_at TEXT,
+        last_used_at TEXT,
+        raw_json TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS virtual_card_transactions (
+        id TEXT PRIMARY KEY,
+        provider_transaction_id TEXT,
+        card_id TEXT NOT NULL,
+        amount REAL NOT NULL,
+        reason TEXT,
+        status TEXT,
+        integration_mode TEXT,
+        session_id TEXT,
+        timestamp TEXT,
+        remaining_limit REAL,
+        raw_json TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS gst_runs (
+        run_id TEXT PRIMARY KEY,
+        status TEXT,
+        portal TEXT,
+        gstin TEXT,
+        filing_period TEXT,
+        tax_amount REAL,
+        notes TEXT,
+        session_id TEXT,
+        card_id TEXT,
+        card_transaction_json TEXT,
+        integration_mode TEXT,
+        receipt_ref TEXT,
+        receipt_url TEXT,
+        steps_json TEXT,
+        completed_at TEXT,
+        raw_json TEXT
+    );
     """)
 
     conn.commit()
@@ -116,6 +168,27 @@ def init_db():
 
 def _row_to_dict(row: sqlite3.Row) -> Dict[str, Any]:
     return dict(row) if row is not None else {}
+
+
+def _safe_json_loads(raw: Any, fallback: Any) -> Any:
+    if raw is None:
+        return fallback
+    try:
+        return json.loads(raw)
+    except (TypeError, ValueError):
+        return fallback
+
+
+def is_db_ready() -> bool:
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT 1")
+        cur.fetchone()
+        conn.close()
+        return True
+    except Exception:
+        return False
 
 
 def insert_audit_log(entry: Dict[str, Any]) -> None:
@@ -355,3 +428,180 @@ def list_sessions() -> List[Dict[str, Any]]:
     rows = [_row_to_dict(row) for row in cur.fetchall()]
     conn.close()
     return rows
+
+
+def upsert_virtual_card(record: Dict[str, Any]) -> None:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT OR REPLACE INTO virtual_cards (
+            id, provider, alias, merchant_lock, purpose, currency, spend_limit, available_limit,
+            status, network, masked_pan, session_id, integration_mode, created_at, last_used_at, raw_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            record.get("id"),
+            record.get("provider"),
+            record.get("alias"),
+            record.get("merchant_lock"),
+            record.get("purpose"),
+            record.get("currency"),
+            record.get("spend_limit"),
+            record.get("available_limit"),
+            record.get("status"),
+            record.get("network"),
+            record.get("masked_pan"),
+            record.get("session_id"),
+            record.get("integration_mode"),
+            record.get("created_at"),
+            record.get("last_used_at"),
+            json.dumps(record, ensure_ascii=True),
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_virtual_card_record(card_id: str) -> Optional[Dict[str, Any]]:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT raw_json FROM virtual_cards WHERE id = ?", (card_id,))
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        return None
+    item = _row_to_dict(row)
+    return _safe_json_loads(item.get("raw_json"), {})
+
+
+def list_virtual_card_records(status: Optional[str] = None) -> List[Dict[str, Any]]:
+    conn = get_conn()
+    cur = conn.cursor()
+    if status:
+        cur.execute(
+            """
+            SELECT raw_json FROM virtual_cards
+            WHERE lower(status) = lower(?)
+            ORDER BY created_at DESC
+            """,
+            (status,),
+        )
+    else:
+        cur.execute(
+            """
+            SELECT raw_json FROM virtual_cards
+            ORDER BY created_at DESC
+            """
+        )
+
+    rows = [_safe_json_loads(_row_to_dict(row).get("raw_json"), {}) for row in cur.fetchall()]
+    conn.close()
+    return [row for row in rows if isinstance(row, dict)]
+
+
+def insert_virtual_card_transaction(record: Dict[str, Any]) -> None:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT OR REPLACE INTO virtual_card_transactions (
+            id, provider_transaction_id, card_id, amount, reason, status, integration_mode,
+            session_id, timestamp, remaining_limit, raw_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            record.get("id"),
+            record.get("provider_transaction_id"),
+            record.get("card_id"),
+            record.get("amount", 0.0),
+            record.get("reason"),
+            record.get("status"),
+            record.get("integration_mode"),
+            record.get("session_id"),
+            record.get("timestamp"),
+            record.get("remaining_limit"),
+            json.dumps(record, ensure_ascii=True),
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+
+def list_virtual_card_transaction_records(card_id: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
+    conn = get_conn()
+    cur = conn.cursor()
+    safe_limit = max(0, limit)
+    if card_id:
+        cur.execute(
+            """
+            SELECT raw_json FROM virtual_card_transactions
+            WHERE card_id = ?
+            ORDER BY timestamp DESC
+            LIMIT ?
+            """,
+            (card_id, safe_limit),
+        )
+    else:
+        cur.execute(
+            """
+            SELECT raw_json FROM virtual_card_transactions
+            ORDER BY timestamp DESC
+            LIMIT ?
+            """,
+            (safe_limit,),
+        )
+    rows = [_safe_json_loads(_row_to_dict(row).get("raw_json"), {}) for row in cur.fetchall()]
+    conn.close()
+    cleaned = [row for row in rows if isinstance(row, dict)]
+    return list(reversed(cleaned))
+
+
+def upsert_gst_run(record: Dict[str, Any]) -> None:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT OR REPLACE INTO gst_runs (
+            run_id, status, portal, gstin, filing_period, tax_amount, notes, session_id, card_id,
+            card_transaction_json, integration_mode, receipt_ref, receipt_url, steps_json, completed_at, raw_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            record.get("run_id"),
+            record.get("status"),
+            record.get("portal"),
+            record.get("gstin"),
+            record.get("filing_period"),
+            record.get("tax_amount", 0.0),
+            record.get("notes"),
+            record.get("session_id"),
+            record.get("card_id"),
+            json.dumps(record.get("card_transaction"), ensure_ascii=True),
+            record.get("integration_mode"),
+            record.get("receipt_ref"),
+            record.get("receipt_url"),
+            json.dumps(record.get("steps", []), ensure_ascii=True),
+            record.get("completed_at"),
+            json.dumps(record, ensure_ascii=True),
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+
+def list_gst_run_records(limit: int = 50) -> List[Dict[str, Any]]:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT raw_json FROM gst_runs
+        ORDER BY completed_at DESC
+        LIMIT ?
+        """,
+        (max(0, limit),),
+    )
+    rows = [_safe_json_loads(_row_to_dict(row).get("raw_json"), {}) for row in cur.fetchall()]
+    conn.close()
+    cleaned = [row for row in rows if isinstance(row, dict)]
+    return list(reversed(cleaned))
