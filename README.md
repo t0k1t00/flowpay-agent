@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="branding/Flowpay_Logo.png" alt="Flowpay Logo" width="220" />
+<img src="branding/Minimal_Flowpay_Logo.png" alt="Flowpay Logo" width="220" />
 
 # Flowpay
 
@@ -14,6 +14,7 @@ Move from sourcing request to supplier selection, escrow controls, approvals, an
 [![FastAPI](https://img.shields.io/badge/FastAPI-API-009688.svg?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![WebSocket](https://img.shields.io/badge/WebSocket-Live%20Event%20Stream-0EA5E9.svg?style=for-the-badge)](backend/main.py)
 [![PayWithLocus](https://img.shields.io/badge/PayWithLocus-Integrated-10B981.svg?style=for-the-badge)](backend/services/spending_controls.py)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/t0k1t00/flowpay-agent)
 
 [About](#about-the-project) | [Architecture](#system-architecture) | [Agent Flow](#the-6-stage-agent-flow) | [Getting Started](#getting-started) | [API](#api-reference) | [Security](#security-and-controls)
 
@@ -208,6 +209,7 @@ cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env
 python main.py
 ```
 
@@ -245,17 +247,29 @@ WebSocket endpoint: `ws://localhost:8000/ws/logs`
 
 ## Configuration
 
-Create `backend/.env` if you want to override defaults.
+Copy `backend/.env.example` to `backend/.env` and update values for your environment.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `USE_LIVE_APIS` | Enable live API mode for integrations | `false` |
 | `USE_LOCUS_WRAPPED_APIS` | Route via Locus wrapped endpoints | `false` |
+| `STRICT_INTEGRATIONS` | Fail loudly instead of degrading to mock behavior | `false` |
+| `REQUIRE_API_KEY` | Enforce `x-api-key` or bearer auth for API endpoints | `false` |
+| `FLOWPAY_API_KEY` | API key used when auth enforcement is enabled | unset |
+| `ENABLE_API_DOCS` | Enable `/docs` and `/redoc` endpoints | `true` |
 | `LOCUS_API_KEY` | Locus API key for wrapped calls | unset |
 | `LOCUS_API_BASE` | Base URL for wrapped API gateway | `https://api.paywithlocus.com/api` |
+| `LOCUS_402_APPROVAL_ENDPOINT` | Endpoint to settle HTTP 402 payment-required events | `/payments/approve` |
+| `LOCUS_WALLET_DEBIT_ENDPOINT` | Wallet debit endpoint | `/wallet/debit` |
+| `LOCUS_WALLET_CREDIT_ENDPOINT` | Wallet credit endpoint | `/wallet/credit` |
+| `LOCUS_ESCROW_CREATE_ENDPOINT` | Escrow creation endpoint | `/escrow/create` |
+| `LOCUS_ESCROW_TRANSITION_ENDPOINT` | Escrow transition endpoint | `/escrow/transition` |
 | `EXA_API_KEY` | Exa API key (live mode) | unset |
 | `FIRECRAWL_API_KEY` | Firecrawl API key (live mode) | unset |
 | `RESEND_API_KEY` | Resend API key (live mode) | unset |
+| `RESEND_FROM_EMAIL` | Sender identity for outbound quote emails | `Flowpay <noreply@flowpay.ai>` |
+| `OPENAI_API_KEY` | Enables LLM planning and LLM parsing paths | unset |
+| `AGENT_MODEL` | LLM model used by parser and decision engine | `gpt-4o-mini` |
 | `AUTO_APPROVE_THRESHOLD` | Amount threshold for auto-approval | `2000` |
 | `MONTHLY_SPEND_LIMIT` | Monthly wallet spend cap | `30000` |
 | `DAILY_SPEND_LIMIT` | Daily wallet spend cap | `10000` |
@@ -306,6 +320,7 @@ Create `backend/.env` if you want to override defaults.
 
 - `GET /api/audit-trail` - Retrieve audit entries
 - `GET /health` - Service health and active session count
+- `GET /health/ready` - Readiness check including DB connectivity
 
 ### Example Request
 
@@ -343,11 +358,13 @@ Create `backend/.env` if you want to override defaults.
 flowpay-agent/
 +-- README.md
 +-- branding/
-|   `-- Flowpay_Logo.png
+|   +-- Flowpay_Logo.png
+|   `-- Minimal_Flowpay_Logo.png
 +-- backend/
 |   +-- main.py
 |   +-- models.py
 |   +-- requirements.txt
+|   +-- .env.example
 |   +-- database/
 |   |   +-- __init__.py
 |   |   `-- db.py
