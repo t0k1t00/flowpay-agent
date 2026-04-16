@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Settings — PayGentic</title>
+<title>Settings — Flowpay</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
@@ -12,8 +12,8 @@
   body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:14px;line-height:1.6;}
   html {scroll-behavior: smooth;}
   .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:56px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
-  .logo{font-family:var(--font-head);font-size:18px;font-weight:800;letter-spacing:-0.5px;color:var(--accent);display:flex;align-items:center;gap:8px;}
-  .logo-dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:pulse 2s infinite;}
+  .logo{font-family:var(--font-head);font-size:18px;font-weight:800;letter-spacing:-0.5px;color:var(--accent);display:flex;align-items:center;gap:0;text-decoration:none;}
+  .logo-img{width:50px;height:50px;object-fit:contain;flex-shrink:0;filter:drop-shadow(0 0 10px rgba(110,231,183,0.3));}
   @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}
   .nav-links{display:flex;gap:4px;}
   .nav-link{font-family:var(--font-head);font-size:12px;font-weight:600;text-decoration:none;color:var(--muted);padding:6px 14px;border-radius:var(--radius-sm);transition:all 0.15s;letter-spacing:0.3px;}
@@ -68,10 +68,11 @@
 </head>
 <body>
 <div class="topbar">
-  <div class="logo"><div class="logo-dot"></div>PayGentic</div>
+  <a href="index.html" class="logo"><img src="../branding/Minimal_Flowpay_Logo.png" alt="Logo" class="logo-img"/></a>
   <nav class="nav-links">
     <a href="index.html" class="nav-link">Dashboard</a>
     <a href="suppliers.html" class="nav-link">Suppliers</a>
+    <a href="a2a.html" class="nav-link">A2A Market</a>
     <a href="audit.html" class="nav-link">Audit Trail</a>
     <a href="approvals.html" class="nav-link">Approvals</a>
     <a href="settings.html" class="nav-link active">Settings</a>
@@ -149,7 +150,7 @@
             <div class="setting-label">Sender Email</div>
             <div class="setting-desc">Email address used for quote requests</div>
           </div>
-          <input class="setting-input" value="procurement@paygentic.ai" type="email"/>
+          <input class="setting-input" value="procurement@flowpay.ai" type="email"/>
         </div>
 
         <div class="setting-row">
@@ -157,7 +158,7 @@
             <div class="setting-label">Sender Name</div>
             <div class="setting-desc">Displayed sender name for outgoing emails</div>
           </div>
-          <input class="setting-input" value="PayGentic Agent" type="text"/>
+          <input class="setting-input" value="Flowpay Agent" type="text"/>
         </div>
 
         <div class="setting-row">
@@ -206,7 +207,7 @@
         </div>
         <div class="setting-row">
           <div><div class="setting-label">Escrow provider</div><div class="setting-desc">Payment partner for fund custody</div></div>
-          <select class="setting-select"><option>Locus Paygentic</option><option>Razorpay Escrow</option><option>Cashfree</option></select>
+          <select class="setting-select"><option>Locus Flowpay</option><option>Razorpay Escrow</option><option>Cashfree</option></select>
         </div>
         <div class="setting-row">
           <div><div class="setting-label">Auto-refund on rejection</div><div class="setting-desc">Automatically return funds when a payment is rejected</div></div>
@@ -341,8 +342,14 @@
 </div>
 
 <script>
-const API_BASE = localStorage.getItem('paygenticApiBase') || 'http://localhost:8000';
+const API_BASE = localStorage.getItem('flowpayApiBase') || localStorage.getItem('paygenticApiBase') || 'http://localhost:8000';
+const API_KEY = localStorage.getItem('flowpayApiKey') || localStorage.getItem('paygenticApiKey') || '';
 let activeCardId = null;
+
+function withAuthHeaders(headers = {}) {
+  if (!API_KEY) return headers;
+  return { ...headers, 'x-api-key': API_KEY };
+}
 
 function toggleKey(id) {
   const inp = document.getElementById(id);
@@ -356,7 +363,7 @@ function setIntegrationOutput(message) {
 async function postJson(path, payload) {
   const response = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: withAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(payload)
   });
   const data = await response.json().catch(() => ({}));
@@ -368,7 +375,9 @@ async function postJson(path, payload) {
 
 async function loadSpendingControls() {
   try {
-    const response = await fetch(`${API_BASE}/api/spending-controls`);
+    const response = await fetch(`${API_BASE}/api/spending-controls`, {
+      headers: withAuthHeaders({})
+    });
     if (!response.ok) return;
     const data = await response.json();
 
@@ -395,7 +404,7 @@ async function save() {
   try {
     const response = await fetch(`${API_BASE}/api/spending-controls`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: withAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         auto_approve_threshold: autoApproveThreshold,
         monthly_spend_limit: monthlySpendLimit,
@@ -422,7 +431,9 @@ async function save() {
 
 async function loadLatestCard() {
   try {
-    const response = await fetch(`${API_BASE}/api/virtual-cards`);
+    const response = await fetch(`${API_BASE}/api/virtual-cards`, {
+      headers: withAuthHeaders({})
+    });
     if (!response.ok) return;
     const cards = await response.json();
     if (Array.isArray(cards) && cards.length) {
