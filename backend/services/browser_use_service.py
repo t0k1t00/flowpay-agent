@@ -8,6 +8,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from database.db import list_gst_run_records, upsert_gst_run
 from services.laso_service import create_virtual_card, debit_virtual_card
 from services.reliability import post_json_with_retries
 from services.runtime_config import strict_integrations, use_live_apis, use_locus_wrapped_apis
@@ -15,6 +16,7 @@ from services.spending_controls import charge_api_usage
 
 
 _GST_RUNS: List[Dict[str, Any]] = []
+_LOADED_FROM_DB = False
 logger = logging.getLogger("flowpay.browser_use")
 
 
@@ -56,6 +58,20 @@ def _locus_wrapped_request(provider: str, endpoint: str, payload: Dict[str, Any]
     return data if isinstance(data, dict) else {}
 
 
+def _ensure_loaded() -> None:
+    global _LOADED_FROM_DB
+    if _LOADED_FROM_DB:
+        return
+
+    try:
+        _GST_RUNS.clear()
+        _GST_RUNS.extend(list_gst_run_records(limit=5000))
+    except Exception:
+        pass
+
+    _LOADED_FROM_DB = True
+
+
 def run_gst_automation(
     gstin: str,
     filing_period: str,
@@ -66,6 +82,7 @@ def run_gst_automation(
     notes: Optional[str] = None,
     auto_pay: bool = True,
 ) -> Dict[str, Any]:
+    _ensure_loaded()
     if tax_amount <= 0:
         raise ValueError("tax_amount must be greater than zero")
     if not gstin.strip():
@@ -152,10 +169,21 @@ def run_gst_automation(
         "completed_at": _now(),
     }
     _GST_RUNS.append(result)
+
+    try:
+        upsert_gst_run(result)
+    except Exception:
+        pass
+
     return result
 
 
 def list_gst_automation_runs(limit: int = 50) -> List[Dict[str, Any]]:
+    _ensure_loaded()
     if limit <= 0:
         return []
-    return _GST_RUNS[-limit:]
+
+    try:
+        return list_gst_run_records(limit=limit)
+    except Exception:
+        return _GST_RUNS[-limit:]
