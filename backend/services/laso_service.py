@@ -2,30 +2,24 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-import httpx
-
+from services.reliability import post_json_with_retries
+from services.runtime_config import strict_integrations, use_live_apis, use_locus_wrapped_apis
 from services.spending_controls import charge_api_usage
 
 
 _CARDS: Dict[str, Dict[str, Any]] = {}
 _CARD_TXNS: List[Dict[str, Any]] = []
+logger = logging.getLogger("flowpay.laso")
 
 
 def _now() -> str:
     return datetime.now().isoformat()
-
-
-def _use_live_apis() -> bool:
-    return os.getenv("USE_LIVE_APIS", "false").lower() == "true"
-
-
-def _use_locus_wrapped_apis() -> bool:
-    return os.getenv("USE_LOCUS_WRAPPED_APIS", "false").lower() == "true"
 
 
 def _locus_api_base() -> str:
@@ -43,11 +37,12 @@ def _locus_wrapped_request(provider: str, endpoint: str, payload: Dict[str, Any]
         "Content-Type": "application/json",
     }
 
-    response = httpx.post(
-        f"{_locus_api_base()}/wrapped/{provider}/{endpoint}",
-        json=payload,
+    response = post_json_with_retries(
+        url=f"{_locus_api_base()}/wrapped/{provider}/{endpoint}",
+        payload=payload,
         headers=headers,
         timeout=15,
+        circuit_key=f"wrapped_{provider}",
     )
     response.raise_for_status()
 
@@ -86,8 +81,9 @@ def create_virtual_card(
 
     card_id = f"card_{uuid.uuid4().hex[:10]}"
     status = "active"
+    integration_mode = "simulated"
 
-    if _use_live_apis() and _use_locus_wrapped_apis():
+    if use_live_apis() and use_locus_wrapped_apis():
         payload = {
             "spend_limit": spend_limit,
             "merchant_lock": merchant_lock,
@@ -99,9 +95,12 @@ def create_virtual_card(
             wrapped = _locus_wrapped_request("laso", "virtual-cards/create", payload)
             card_id = str(wrapped.get("id") or wrapped.get("card_id") or card_id)
             status = str(wrapped.get("status") or status)
-        except Exception:
-            # Fallback to deterministic local mode when live endpoint is unreachable.
-            pass
+            integration_mode = "live_wrapped"
+        except Exception as exc:
+            if strict_integrations():
+                raise RuntimeError("Laso wrapped virtual card create failed") from exc
+            logger.warning("degraded to local virtual card mode: %s", str(exc))
+            integration_mode = "degraded_fallback"
 
     card = {
         "id": card_id,
@@ -116,6 +115,7 @@ def create_virtual_card(
         "network": "VISA",
         "masked_pan": _masked_pan(card_id),
         "session_id": session_id,
+        "integration_mode": integration_mode,
         "created_at": _now(),
         "last_used_at": None,
     }
@@ -155,15 +155,36 @@ def debit_virtual_card(card_id: str, amount: float, session_id: str = "manual", 
         metadata={"event": "virtual_card_debit_fee", "card_id": card_id},
     )
 
+    integration_mode = "simulated"
+    provider_txn_id = None
+    if use_live_apis() and use_locus_wrapped_apis():
+        payload = {
+            "card_id": card_id,
+            "amount": amount,
+            "reason": reason,
+            "session_id": session_id,
+        }
+        try:
+            wrapped = _locus_wrapped_request("laso", "virtual-cards/debit", payload)
+            provider_txn_id = wrapped.get("id") or wrapped.get("transaction_id")
+            integration_mode = "live_wrapped"
+        except Exception as exc:
+            if strict_integrations():
+                raise RuntimeError("Laso wrapped virtual card debit failed") from exc
+            logger.warning("degraded to local virtual card debit mode: %s", str(exc))
+            integration_mode = "degraded_fallback"
+
     card["available_limit"] = round(float(card.get("available_limit", 0.0)) - amount, 2)
     card["last_used_at"] = _now()
 
     txn = {
         "id": f"txn_{uuid.uuid4().hex[:10]}",
+        "provider_transaction_id": provider_txn_id,
         "card_id": card_id,
         "amount": round(amount, 2),
         "reason": reason,
         "status": "charged",
+        "integration_mode": integration_mode,
         "session_id": session_id,
         "timestamp": _now(),
         "remaining_limit": card["available_limit"],
