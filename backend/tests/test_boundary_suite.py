@@ -1,6 +1,9 @@
 """Boundary tests for spending controls, card limits, and audit integrity."""
 
+import asyncio
+import os
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -216,6 +219,118 @@ class BoundarySuiteTests(unittest.TestCase):
         self.assertEqual(tasks.status_code, 200)
         task_ids = [row.get("id") for row in tasks.json()]
         self.assertIn(task.get("id"), task_ids)
+
+    def test_a2a_registration_rejects_unsafe_endpoint(self) -> None:
+        response = self.client.post(
+            "/api/a2a/services/register",
+            json={
+                "name": "Unsafe Callback",
+                "capability": "web_scrape",
+                "price_per_unit": 1,
+                "seller_agent_id": "agent_seller_unsafe",
+                "session_id": "test_a2a_ssrf",
+                "endpoint_url": "https://127.0.0.1/internal/callback",
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("endpoint_url", response.text)
+
+    def test_orchestrator_progresses_without_llm(self) -> None:
+        from services.orchestrator import ProcurementOrchestrator
+        from services.runtime_config import load_runtime_config
+
+        original_openai = os.environ.get("OPENAI_API_KEY")
+        original_live = os.environ.get("USE_LIVE_APIS")
+        original_strict = os.environ.get("STRICT_INTEGRATIONS")
+
+        try:
+            os.environ["OPENAI_API_KEY"] = ""
+            os.environ["USE_LIVE_APIS"] = "false"
+            os.environ["STRICT_INTEGRATIONS"] = "false"
+            load_runtime_config.cache_clear()
+
+            events = []
+
+            async def emit(payload):
+                events.append(payload.get("type"))
+
+            context = asyncio.run(
+                ProcurementOrchestrator(max_steps=8).run(
+                    query="Find 100kg cotton yarn under ₹300/kg delivered in 5 days",
+                    session_id="test_orchestrator_no_llm",
+                    emit=emit,
+                )
+            )
+
+            self.assertIsNotNone(context.escrow)
+            self.assertIn("escrow_management", context.executed_tools)
+            self.assertNotIn("pipeline_error", events)
+        finally:
+            if original_openai is None:
+                os.environ.pop("OPENAI_API_KEY", None)
+            else:
+                os.environ["OPENAI_API_KEY"] = original_openai
+
+            if original_live is None:
+                os.environ.pop("USE_LIVE_APIS", None)
+            else:
+                os.environ["USE_LIVE_APIS"] = original_live
+
+            if original_strict is None:
+                os.environ.pop("STRICT_INTEGRATIONS", None)
+            else:
+                os.environ["STRICT_INTEGRATIONS"] = original_strict
+
+            load_runtime_config.cache_clear()
+
+    def test_a2a_strict_failure_reverts_charge(self) -> None:
+        from services import a2a_marketplace_service as a2a_service
+        from services.runtime_config import load_runtime_config
+        from services.spending_controls import get_wallet_state
+
+        original_strict = os.environ.get("STRICT_INTEGRATIONS")
+
+        try:
+            os.environ["STRICT_INTEGRATIONS"] = "true"
+            load_runtime_config.cache_clear()
+
+            service = a2a_service.register_service(
+                name="Invoice OCR",
+                capability="document_ocr",
+                price_per_unit=2.5,
+                seller_agent_id="agent_seller_refund",
+                session_id="test_a2a_refund",
+                endpoint_url="https://example.com/task",
+            )
+
+            before_balance = get_wallet_state().balance
+
+            with patch(
+                "services.a2a_marketplace_service._execute_remote_task",
+                side_effect=RuntimeError("simulated remote failure"),
+            ):
+                with self.assertRaises(RuntimeError):
+                    a2a_service.execute_task(
+                        service_id=service["id"],
+                        requester_agent_id="agent_buyer_refund",
+                        units=3,
+                        payload={"doc": "invoice.pdf"},
+                        session_id="test_a2a_refund",
+                    )
+
+            after_balance = get_wallet_state().balance
+            self.assertAlmostEqual(before_balance, after_balance, places=2)
+
+            tasks = a2a_service.list_tasks(limit=25, session_id="test_a2a_refund")
+            failed = [task for task in tasks if task.get("status") == "failed"]
+            self.assertTrue(failed)
+            self.assertTrue(any(task.get("result", {}).get("charge_reverted") for task in failed))
+        finally:
+            if original_strict is None:
+                os.environ.pop("STRICT_INTEGRATIONS", None)
+            else:
+                os.environ["STRICT_INTEGRATIONS"] = original_strict
+            load_runtime_config.cache_clear()
 
 
 if __name__ == "__main__":
