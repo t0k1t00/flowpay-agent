@@ -7,6 +7,7 @@ import asyncio
 import json
 import logging
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -80,30 +81,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger("flowpay")
 
-runtime_cfg = load_runtime_config()
-app = FastAPI(
-    title="PayGentic API",
-    version="1.1.0",
-    docs_url="/docs" if runtime_cfg.docs_enabled else None,
-    redoc_url="/redoc" if runtime_cfg.docs_enabled else None,
-)
 
-app.add_middleware(ApiKeyMiddleware)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-manager = ConnectionManager()
-orchestrator = ProcurementOrchestrator()
-sessions: Dict[str, Dict[str, Any]] = {}
-
-
-@app.on_event("startup")
-async def startup() -> None:
+@asynccontextmanager
+async def lifespan(_: FastAPI):
     init_db()
     hydrate_wallet_state()
     for saved in list_sessions():
@@ -141,6 +121,30 @@ async def startup() -> None:
             "api_key_required": runtime_cfg.require_api_key,
         },
     )
+    yield
+
+
+runtime_cfg = load_runtime_config()
+app = FastAPI(
+    title="PayGentic API",
+    version="1.1.0",
+    docs_url="/docs" if runtime_cfg.docs_enabled else None,
+    redoc_url="/redoc" if runtime_cfg.docs_enabled else None,
+    lifespan=lifespan,
+)
+
+app.add_middleware(ApiKeyMiddleware)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=runtime_cfg.cors_allow_origins,
+    allow_methods=runtime_cfg.cors_allow_methods,
+    allow_headers=runtime_cfg.cors_allow_headers,
+)
+
+manager = ConnectionManager()
+orchestrator = ProcurementOrchestrator()
+sessions: Dict[str, Dict[str, Any]] = {}
 
 
 def now() -> str:
