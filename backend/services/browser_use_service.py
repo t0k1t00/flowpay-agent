@@ -2,30 +2,24 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-import httpx
-
 from services.laso_service import create_virtual_card, debit_virtual_card
+from services.reliability import post_json_with_retries
+from services.runtime_config import strict_integrations, use_live_apis, use_locus_wrapped_apis
 from services.spending_controls import charge_api_usage
 
 
 _GST_RUNS: List[Dict[str, Any]] = []
+logger = logging.getLogger("flowpay.browser_use")
 
 
 def _now() -> str:
     return datetime.now().isoformat()
-
-
-def _use_live_apis() -> bool:
-    return os.getenv("USE_LIVE_APIS", "false").lower() == "true"
-
-
-def _use_locus_wrapped_apis() -> bool:
-    return os.getenv("USE_LOCUS_WRAPPED_APIS", "false").lower() == "true"
 
 
 def _locus_api_base() -> str:
@@ -43,11 +37,12 @@ def _locus_wrapped_request(provider: str, endpoint: str, payload: Dict[str, Any]
         "Content-Type": "application/json",
     }
 
-    response = httpx.post(
-        f"{_locus_api_base()}/wrapped/{provider}/{endpoint}",
-        json=payload,
+    response = post_json_with_retries(
+        url=f"{_locus_api_base()}/wrapped/{provider}/{endpoint}",
+        payload=payload,
         headers=headers,
         timeout=20,
+        circuit_key=f"wrapped_{provider}",
     )
     response.raise_for_status()
 
@@ -114,8 +109,9 @@ def run_gst_automation(
 
     run_id = f"gst_{uuid.uuid4().hex[:10]}"
     receipt_ref = f"GSTN-{uuid.uuid4().hex[:8].upper()}"
+    integration_mode = "simulated"
 
-    if _use_live_apis() and _use_locus_wrapped_apis():
+    if use_live_apis() and use_locus_wrapped_apis():
         payload = {
             "gstin": gstin,
             "filing_period": filing_period,
@@ -129,9 +125,12 @@ def run_gst_automation(
             wrapped = _locus_wrapped_request("browser-use", "gstn/automate", payload)
             run_id = str(wrapped.get("run_id") or wrapped.get("id") or run_id)
             receipt_ref = str(wrapped.get("receipt_ref") or wrapped.get("acknowledgement_no") or receipt_ref)
-        except Exception:
-            # Fallback to deterministic local mode when live endpoint is unreachable.
-            pass
+            integration_mode = "live_wrapped"
+        except Exception as exc:
+            if strict_integrations():
+                raise RuntimeError("GST automation wrapped call failed") from exc
+            logger.warning("degraded to local GST automation mode: %s", str(exc))
+            integration_mode = "degraded_fallback"
 
     steps.append({"step": "download_receipt", "status": "completed", "ts": _now()})
 
@@ -146,6 +145,7 @@ def run_gst_automation(
         "session_id": session_id,
         "card_id": selected_card_id,
         "card_transaction": card_txn,
+        "integration_mode": integration_mode,
         "receipt_ref": receipt_ref,
         "receipt_url": f"https://gstn.example/receipts/{receipt_ref}",
         "steps": steps,
