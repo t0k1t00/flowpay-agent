@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>PayGentic — Autonomous B2B Sourcing Agent</title>
+<title>Flowpay — Autonomous B2B Sourcing Agent</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
@@ -84,21 +84,12 @@ body {
   display: flex; align-items: center; gap: 9px;
   text-decoration: none;
 }
-.logo-mark {
-  width: 28px; height: 28px; border-radius: 7px;
-  background: rgba(94,234,212,0.08);
-  border: 1px solid rgba(94,234,212,0.22);
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; position: relative;
-}
-.logo-mark::before {
-  content: ''; width: 8px; height: 8px; border-radius: 50%;
-  background: var(--accent); box-shadow: 0 0 8px var(--accent);
-  animation: logoPulse 2.4s ease-in-out infinite;
-}
-@keyframes logoPulse {
-  0%,100% { opacity:1; transform:scale(1); box-shadow:0 0 6px var(--accent); }
-  50%      { opacity:0.55; transform:scale(0.68); box-shadow:0 0 16px var(--accent); }
+.logo-img {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 10px rgba(94,234,212,0.35));
 }
 .nav-links { display: flex; gap: 2px; }
 .nav-link {
@@ -413,6 +404,67 @@ body {
 .wallet-balance { font-family:var(--font-head); font-size:24px; font-weight:800; color:var(--accent); line-height:1; letter-spacing:-0.5px; transition:all 0.4s; }
 .wallet-sub { font-size:11px; color:var(--muted); margin-top:4px; }
 
+.ready-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 13px 14px;
+  margin-bottom: 13px;
+}
+.ready-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ready-title {
+  font-family: var(--font-head);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ready-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  border-radius: 999px;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+}
+.ready-badge.ok {
+  color: var(--green);
+  background: rgba(52,211,153,0.1);
+  border-color: rgba(52,211,153,0.2);
+}
+.ready-badge.warn {
+  color: var(--amber);
+  background: rgba(245,158,11,0.1);
+  border-color: rgba(245,158,11,0.22);
+}
+.ready-list {
+  margin-top: 9px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.ready-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.ready-row span:first-child {
+  color: var(--muted);
+}
+.ready-row span:last-child {
+  font-family: var(--font-mono);
+  color: var(--text);
+  margin-left: 8px;
+  text-align: right;
+}
+
 .spend-bar-wrap { margin-top:13px; }
 .spend-bar-label { display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:7px; }
 .spend-bar-track { height:5px; background:var(--bg); border-radius:3px; overflow:hidden; position:relative; }
@@ -606,12 +658,12 @@ body {
 <!-- TOPBAR -->
 <div class="topbar">
   <a href="index.html" class="logo">
-    <div class="logo-mark"></div>
-    PayGentic
+    <img src="../branding/Minimal_Flowpay_Logo.png" alt="Logo" class="logo-img"/>
   </a>
   <nav class="nav-links">
     <a href="index.html"     class="nav-link active">Dashboard</a>
     <a href="suppliers.html" class="nav-link">Suppliers</a>
+    <a href="a2a.html"       class="nav-link">A2A Market</a>
     <a href="audit.html"     class="nav-link">Audit Trail</a>
     <a href="approvals.html" class="nav-link">Approvals</a>
     <a href="settings.html"  class="nav-link">Settings</a>
@@ -678,7 +730,7 @@ body {
       <div class="wallet-card">
         <div class="wallet-label">Wallet Balance</div>
         <div class="wallet-balance" id="walletBalance">₹50,000</div>
-        <div class="wallet-sub">Locus Paygentic Virtual Wallet</div>
+        <div class="wallet-sub">Flowpay Wallet powered by Locus</div>
         <div class="spend-bar-wrap">
           <div class="spend-bar-label">
             <span>Spent: <span id="spentAmt">₹0</span></span>
@@ -687,6 +739,17 @@ body {
           <div class="spend-bar-track">
             <div class="spend-bar-fill" id="spendBar"></div>
           </div>
+        </div>
+      </div>
+
+      <div class="ready-card">
+        <div class="ready-head">
+          <div class="ready-title">System Readiness</div>
+          <span class="ready-badge warn" id="readyState">Checking</span>
+        </div>
+        <div class="ready-list">
+          <div class="ready-row"><span>Database</span><span id="readyDb">--</span></div>
+          <div class="ready-row"><span>Providers</span><span id="readyProviders">--</span></div>
         </div>
       </div>
 
@@ -796,8 +859,14 @@ body {
 /* ═══════════════════════════════════════════
    CONFIG — backend base URL (override via localStorage)
 ═══════════════════════════════════════════ */
-const API_BASE = localStorage.getItem('paygenticApiBase') || 'http://localhost:8000';
+const API_BASE = localStorage.getItem('flowpayApiBase') || localStorage.getItem('paygenticApiBase') || 'http://localhost:8000';
+const API_KEY  = localStorage.getItem('flowpayApiKey') || localStorage.getItem('paygenticApiKey') || '';
 const WS_BASE  = API_BASE.replace(/^http/i, 'ws');
+
+function withAuthHeaders(headers = {}) {
+  if (!API_KEY) return headers;
+  return { ...headers, 'x-api-key': API_KEY };
+}
 
 /* ═══════════════════════════════════════════
    SVG ICON STRINGS
@@ -1083,6 +1152,58 @@ function updateWallet({ balance, spent, limit } = {}) {
   else bar.classList.remove('active');
 }
 
+function setReadinessUI(payload) {
+  const stateEl = document.getElementById('readyState');
+  const dbEl = document.getElementById('readyDb');
+  const providersEl = document.getElementById('readyProviders');
+
+  if (!payload) {
+    stateEl.textContent = 'Offline';
+    stateEl.className = 'ready-badge warn';
+    dbEl.textContent = 'Unknown';
+    providersEl.textContent = 'Unavailable';
+    return;
+  }
+
+  const ready = Boolean(payload.ready);
+  stateEl.textContent = ready ? 'Ready' : 'Not Ready';
+  stateEl.className = `ready-badge ${ready ? 'ok' : 'warn'}`;
+  dbEl.textContent = payload.db_ready ? 'Ready' : 'Pending';
+
+  const providerHealth = payload.providers || {};
+  const providerMap = providerHealth.providers || {};
+  const providerRows = Object.values(providerMap);
+
+  if (!providerRows.length) {
+    providersEl.textContent = 'n/a';
+    return;
+  }
+
+  if (providerHealth.live_mode === false) {
+    const configured = providerRows.filter((provider) => provider && provider.configured).length;
+    providersEl.textContent = `${configured}/${providerRows.length} configured (live off)`;
+    return;
+  }
+
+  const healthy = providerRows.filter((provider) => provider && provider.status === 'healthy').length;
+  providersEl.textContent = `${healthy}/${providerRows.length} healthy`;
+}
+
+async function refreshReadiness() {
+  try {
+    const [readyPayload, healthPayload] = await Promise.all([
+      apiJson('/health/ready'),
+      apiJson('/health'),
+    ]);
+    setReadinessUI({
+      ...readyPayload,
+      providers: healthPayload.providers || readyPayload.providers,
+    });
+  } catch {
+    setReadinessUI(null);
+  }
+}
+
 /* ── Running state ── */
 function setRunningState(running) {
   state.running = running;
@@ -1186,7 +1307,10 @@ function ensureSocket() {
 
   state.socketPromise = new Promise((resolve, reject) => {
     try {
-      const ws = new WebSocket(`${WS_BASE}/ws/logs`);
+      const wsUrl = API_KEY
+        ? `${WS_BASE}/ws/logs?api_key=${encodeURIComponent(API_KEY)}`
+        : `${WS_BASE}/ws/logs`;
+      const ws = new WebSocket(wsUrl);
       state.socket = ws;
 
       ws.onopen = () => {
@@ -1221,7 +1345,7 @@ function ensureSocket() {
 async function apiJson(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    headers: withAuthHeaders({ 'Content-Type': 'application/json', ...(options.headers || {}) }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
@@ -1503,6 +1627,9 @@ async function bootstrapDashboard() {
     state.approvalThreshold = Number(controls.auto_approve_threshold || state.approvalThreshold);
   } catch { /* keep defaults */ }
 
+  // Readiness is visible even before the agent runs.
+  refreshReadiness();
+
   // Try to connect WebSocket (silently fail)
   ensureSocket().catch(() => {
     addLog({ type:'warn', action:'Backend not detected', detail:'Demo mode active — backend optional at localhost:8000', time:'—' });
@@ -1515,9 +1642,6 @@ window.addEventListener('beforeunload', () => {
 });
 
 bootstrapDashboard();
-  addLog({ type:'ok', action:'Shipment proof uploaded', detail:'Document verified — ready to release escrow', time:'—' });
-  addAudit('Proof uploaded', 'Shipment document verified', 'var(--accent)', null);
-
 </script>
 </body>
 </html>
