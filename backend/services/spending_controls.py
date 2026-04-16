@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import uuid
 from datetime import datetime
@@ -9,6 +10,7 @@ from threading import Lock
 from typing import Any, Callable, Dict, List, Optional
 
 from database.db import (
+    init_db,
     get_wallet_state_record,
     insert_wallet_ledger_entry,
     list_wallet_ledger_entries,
@@ -16,6 +18,10 @@ from database.db import (
 )
 from models import WalletState
 from services.locus_client import wallet_credit, wallet_debit
+from services.runtime_config import strict_integrations
+
+
+logger = logging.getLogger("flowpay.wallet")
 
 
 def _env_float(name: str, default: float) -> float:
@@ -55,6 +61,15 @@ _STATE: Dict[str, Any] = {
 
 _LEDGER: List[Dict[str, Any]] = []
 _PAYMENT_EVENT_HOOK: Optional[Callable[[Dict[str, Any]], None]] = None
+_DB_INIT_DONE = False
+
+
+def _ensure_db_schema() -> None:
+    global _DB_INIT_DONE
+    if _DB_INIT_DONE:
+        return
+    init_db()
+    _DB_INIT_DONE = True
 
 
 def _now_iso() -> str:
@@ -82,20 +97,44 @@ def _record(kind: str, amount: float, session_id: str, status: str, metadata: Di
 
     try:
         insert_wallet_ledger_entry(entry)
-    except Exception:
-        pass
+    except Exception as exc:
+        if "no such table" in str(exc).lower():
+            _ensure_db_schema()
+            try:
+                insert_wallet_ledger_entry(entry)
+            except Exception as retry_exc:
+                logger.warning("wallet ledger persistence failed after retry: %s", str(retry_exc))
+                if strict_integrations():
+                    raise RuntimeError("Wallet ledger persistence failed") from retry_exc
+        else:
+            logger.warning("wallet ledger persistence failed: %s", str(exc))
+            if strict_integrations():
+                raise RuntimeError("Wallet ledger persistence failed") from exc
 
     try:
         upsert_wallet_state(_STATE)
-    except Exception:
-        pass
+    except Exception as exc:
+        if "no such table" in str(exc).lower():
+            _ensure_db_schema()
+            try:
+                upsert_wallet_state(_STATE)
+            except Exception as retry_exc:
+                logger.warning("wallet state persistence failed after retry: %s", str(retry_exc))
+                if strict_integrations():
+                    raise RuntimeError("Wallet state persistence failed") from retry_exc
+        else:
+            logger.warning("wallet state persistence failed: %s", str(exc))
+            if strict_integrations():
+                raise RuntimeError("Wallet state persistence failed") from exc
 
     hook = _PAYMENT_EVENT_HOOK
     if hook:
         try:
             hook(entry)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("payment event hook failed: %s", str(exc))
+            if strict_integrations():
+                raise RuntimeError("Payment event hook failed") from exc
 
     return entry
 
@@ -107,6 +146,7 @@ def set_payment_event_hook(hook: Optional[Callable[[Dict[str, Any]], None]]) -> 
 
 def hydrate_wallet_state() -> None:
     with _LOCK:
+        _ensure_db_schema()
         persisted = get_wallet_state_record()
         if persisted:
             _STATE["balance"] = float(persisted.get("balance", _STATE["balance"]))
