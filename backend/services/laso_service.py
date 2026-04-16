@@ -8,6 +8,13 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from database.db import (
+    get_virtual_card_record,
+    insert_virtual_card_transaction,
+    list_virtual_card_records,
+    list_virtual_card_transaction_records,
+    upsert_virtual_card,
+)
 from services.reliability import post_json_with_retries
 from services.runtime_config import strict_integrations, use_live_apis, use_locus_wrapped_apis
 from services.spending_controls import charge_api_usage
@@ -15,6 +22,7 @@ from services.spending_controls import charge_api_usage
 
 _CARDS: Dict[str, Dict[str, Any]] = {}
 _CARD_TXNS: List[Dict[str, Any]] = []
+_LOADED_FROM_DB = False
 logger = logging.getLogger("flowpay.laso")
 
 
@@ -61,6 +69,26 @@ def _masked_pan(card_id: str) -> str:
     return f"5290 11XX XXXX {tail}"
 
 
+def _ensure_loaded() -> None:
+    global _LOADED_FROM_DB
+    if _LOADED_FROM_DB:
+        return
+
+    try:
+        cards = list_virtual_card_records()
+        for card in cards:
+            card_id = card.get("id")
+            if card_id:
+                _CARDS[str(card_id)] = card
+
+        _CARD_TXNS.clear()
+        _CARD_TXNS.extend(list_virtual_card_transaction_records(limit=5000))
+    except Exception:
+        pass
+
+    _LOADED_FROM_DB = True
+
+
 def create_virtual_card(
     spend_limit: float,
     session_id: str = "manual",
@@ -69,6 +97,7 @@ def create_virtual_card(
     purpose: str = "gst_payment",
     currency: str = "INR",
 ) -> Dict[str, Any]:
+    _ensure_loaded()
     if spend_limit <= 0:
         raise ValueError("spend_limit must be greater than zero")
 
@@ -120,10 +149,15 @@ def create_virtual_card(
         "last_used_at": None,
     }
     _CARDS[card_id] = card
+    try:
+        upsert_virtual_card(card)
+    except Exception:
+        pass
     return card
 
 
 def list_virtual_cards(status: Optional[str] = None) -> List[Dict[str, Any]]:
+    _ensure_loaded()
     rows = list(_CARDS.values())
     if status:
         rows = [row for row in rows if str(row.get("status", "")).lower() == status.lower()]
@@ -131,10 +165,22 @@ def list_virtual_cards(status: Optional[str] = None) -> List[Dict[str, Any]]:
 
 
 def get_virtual_card(card_id: str) -> Optional[Dict[str, Any]]:
-    return _CARDS.get(card_id)
+    _ensure_loaded()
+    card = _CARDS.get(card_id)
+    if card:
+        return card
+
+    try:
+        record = get_virtual_card_record(card_id)
+        if record:
+            _CARDS[card_id] = record
+        return record
+    except Exception:
+        return None
 
 
 def debit_virtual_card(card_id: str, amount: float, session_id: str = "manual", reason: str = "portal_payment") -> Dict[str, Any]:
+    _ensure_loaded()
     if amount <= 0:
         raise ValueError("amount must be greater than zero")
 
@@ -190,14 +236,25 @@ def debit_virtual_card(card_id: str, amount: float, session_id: str = "manual", 
         "remaining_limit": card["available_limit"],
     }
     _CARD_TXNS.append(txn)
+
+    try:
+        upsert_virtual_card(card)
+        insert_virtual_card_transaction(txn)
+    except Exception:
+        pass
+
     return txn
 
 
 def list_virtual_card_transactions(card_id: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
+    _ensure_loaded()
     if limit <= 0:
         return []
 
-    rows = _CARD_TXNS
-    if card_id:
-        rows = [row for row in rows if row.get("card_id") == card_id]
-    return rows[-limit:]
+    try:
+        return list_virtual_card_transaction_records(card_id=card_id, limit=limit)
+    except Exception:
+        rows = _CARD_TXNS
+        if card_id:
+            rows = [row for row in rows if row.get("card_id") == card_id]
+        return rows[-limit:]
