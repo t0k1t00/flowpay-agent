@@ -351,9 +351,101 @@ def search_suppliers(parsed: ParsedRequest, session_id: str) -> List[Supplier]:
     return filtered if filtered else suppliers
 
 
+def _live_apollo_enrich(suppliers: List[Supplier], session_id: str) -> List[Supplier]:
+    if not suppliers:
+        return []
+
+    if use_locus_wrapped_apis():
+        payload = {
+            "suppliers": [
+                {
+                    "id": supplier.id,
+                    "company_name": supplier.company_name,
+                    "email": supplier.email,
+                    "website": supplier.website,
+                    "location": supplier.location,
+                }
+                for supplier in suppliers
+            ]
+        }
+        data = _locus_wrapped_request("apollo", "enrich", payload)
+        rows = data.get("suppliers") if isinstance(data, dict) else None
+        if not isinstance(rows, list):
+            raise RuntimeError("Apollo wrapped enrichment did not return suppliers list")
+
+        by_id = {str(item.get("id")): item for item in rows if isinstance(item, dict)}
+        enriched: List[Supplier] = []
+        for supplier in suppliers:
+            copy = supplier.model_copy()
+            record = by_id.get(copy.id, {})
+            if record.get("score") is not None:
+                copy.score = int(record.get("score"))
+            if record.get("verified") is not None:
+                copy.verified = bool(record.get("verified"))
+            if record.get("location"):
+                copy.location = str(record.get("location"))
+            if record.get("email"):
+                copy.email = str(record.get("email"))
+            enriched.append(copy)
+        return enriched
+
+    apollo_key = os.getenv("APOLLO_API_KEY", "").strip()
+    endpoint = os.getenv("APOLLO_ENRICH_ENDPOINT", "").strip()
+
+    if not apollo_key or "your_" in apollo_key.lower():
+        raise RuntimeError("APOLLO_API_KEY is required for live enrichment")
+    if not endpoint:
+        raise RuntimeError("APOLLO_ENRICH_ENDPOINT is required for live enrichment")
+
+    headers = {
+        "Authorization": f"Bearer {apollo_key}",
+        "X-Api-Key": apollo_key,
+        "Content-Type": "application/json",
+    }
+
+    enriched: List[Supplier] = []
+    for supplier in suppliers:
+        copy = supplier.model_copy()
+        domain = _safe_domain(supplier.website or "") if supplier.website else ""
+        payload = {
+            "domain": domain,
+            "company_name": supplier.company_name,
+            "email": supplier.email,
+            "location": supplier.location,
+        }
+
+        response = post_json_with_402_retry(
+            url=endpoint,
+            payload=payload,
+            headers=headers,
+            provider="apollo",
+            session_id=session_id,
+            timeout=12,
+            circuit_key="apollo",
+        ).response
+
+        body = response.json() if response.content else {}
+        if isinstance(body, dict):
+            data = body.get("data", body)
+            if isinstance(data, dict):
+                if data.get("score") is not None:
+                    copy.score = int(data.get("score"))
+                if data.get("verified") is not None:
+                    copy.verified = bool(data.get("verified"))
+                if data.get("location"):
+                    copy.location = str(data.get("location"))
+                if data.get("email"):
+                    copy.email = str(data.get("email"))
+                if data.get("website"):
+                    copy.website = str(data.get("website"))
+        enriched.append(copy)
+
+    return enriched
+
+
 def enrich_suppliers(suppliers: List[Supplier], session_id: str) -> List[Supplier]:
     """
-    Simulate enrichment and GSTIN verification with controlled, deterministic scoring.
+    Enrich suppliers via Apollo/Clado path in live mode with deterministic fallback.
     """
     charge_api_usage(
         provider="apollo",
@@ -361,6 +453,12 @@ def enrich_suppliers(suppliers: List[Supplier], session_id: str) -> List[Supplie
         session_id=session_id,
         metadata={"count": len(suppliers), "mode": "enrichment"},
     )
+
+    if use_live_apis():
+        try:
+            return _live_apollo_enrich(suppliers, session_id=session_id)
+        except Exception as exc:
+            _degrade_or_raise("live Apollo enrichment failed, switching to deterministic scoring", exc)
 
     enriched: List[Supplier] = []
     for supplier in suppliers:
